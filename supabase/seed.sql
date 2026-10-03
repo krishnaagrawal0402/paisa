@@ -1,0 +1,2 @@
+-- Runs after migrations on `supabase start` / `supabase db reset` (local only).
+-- Demo data lives in scripts/seed-demo (added in a later milestone), not here.

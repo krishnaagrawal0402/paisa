@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/*
+ * Dark Neon Glass design tokens. Every colour in the app comes from here,
+ * so a light theme later is a token swap, not a rewrite.
+ */
+@theme {
+  --color-bg: #07070b;
+  --color-bg-raised: #0e0e14;
+  --color-fg: #f4f4f5;
+  --color-muted: #a1a1aa;
+  --color-subtle: #71717a;
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-glass: rgb(255 255 255 / 0.04);
+  --color-glass-hover: rgb(255 255 255 / 0.07);
+
+  --color-income: #3dff9a;
+  --color-expense: #ff3d81;
+  --color-invest: #a78bfa;
+  --color-save: #22d3ee;
+  --color-warn: #ffb020;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --radius-card: 1.5rem;
+
+  --animate-aurora: aurora 24s ease-in-out infinite alternate;
+
+  @keyframes aurora {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(6%, -4%, 0) scale(1.08);
+    }
+    100% {
+      transform: translate3d(-4%, 5%, 0) scale(0.96);
+    }
+  }
+}
+
+@utility glass {
+  background-color: var(--color-glass);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  /* faint top highlight, like light catching the edge of glass */
+  box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.06);
+}
+
+@utility glow-income {
+  text-shadow: 0 0 24px rgb(61 255 154 / 0.45);
+}
+@utility glow-expense {
+  text-shadow: 0 0 24px rgb(255 61 129 / 0.45);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html {
+    background-color: var(--color-bg);
+  }
+  /* No body background: it would paint over the -z-10 aurora layer. */
+  body {
+    color: var(--color-fg);
+    -webkit-tap-highlight-color: transparent;
+  }
+  ::selection {
+    background: rgb(61 255 154 / 0.3);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-save);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
