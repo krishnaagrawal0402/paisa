@@ -54,6 +54,17 @@ These two settings live in Supabase Auth config rather than the database, so set
 
 The allowlist applies to Google too: the database refuses to create accounts for emails that aren't listed.
 
+## Recurring entries (no setup needed)
+
+Recurring rules (salary, rent, SIPs, subscriptions) are posted by the database itself:
+
+- A **pg_cron** job (`paisa-post-recurring`, created by the migrations) runs every day at 00:30 UTC (06:00 IST).
+- The app also catches up whenever it loads, so nothing is missed if the job is skipped.
+- Both are idempotent: an occurrence can only ever be logged once.
+
+Outside India? Change `timeZone` in `config/app.ts`, and the time zone in the `cron.schedule(...)` call at the end of
+`supabase/migrations/20261004030000_recurring.sql` (add a new migration that re-runs `cron.schedule` with the same job name).
+
 ## Who can sign in?
 
 - `ALLOWED_EMAILS` is checked in the app **and** enforced by a Postgres trigger, `private.guard_signup`. Strangers can't create accounts even by calling Supabase directly.

@@ -16,14 +16,16 @@ export function SafeToSpendCard({
   result,
   daysLeft,
   savingsTargetPct,
+  committed = 0,
 }: {
   result: SafeToSpend;
   daysLeft: number;
   savingsTargetPct: number;
+  committed?: number;
 }) {
   if (result.status === "no-income") {
     return (
-      <Card className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <Card className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="bg-save/15 text-save grid size-10 shrink-0 place-items-center rounded-full">
             <Gauge className="size-5" />
@@ -48,7 +50,7 @@ export function SafeToSpendCard({
   const fillPct = Math.min(100, result.used * 100);
 
   return (
-    <Card className="space-y-4">
+    <Card className="h-full space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
           <CardLabel>Safe to spend</CardLabel>
@@ -99,7 +101,14 @@ export function SafeToSpendCard({
             <span className="money">{formatINR(result.spendable)}</span> budget
           </>
         )}{" "}
-        after keeping {savingsTargetPct}% aside.
+        after keeping {savingsTargetPct}% aside
+        {committed > 0 && (
+          <>
+            {" "}
+            and <span className="money">{formatINR(committed)}</span> for bills still due
+          </>
+        )}
+        .
       </p>
     </Card>
   );

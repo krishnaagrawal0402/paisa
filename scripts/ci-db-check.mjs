@@ -55,6 +55,29 @@ try {
       balances[bank.id] === 50000 && balances[cash.id] === 25000,
     );
 
+    // ── recurring ──
+    const [{ a, b, c }] = await tx`
+      select private.next_occurrence('monthly', '2026-01-31', '2026-01-31') as a,
+             private.next_occurrence('monthly', '2026-01-31', '2026-02-28') as b,
+             private.next_occurrence('yearly', '2024-02-29', '2024-02-29') as c`;
+    const iso = (d) => d.toISOString().slice(0, 10);
+    check(
+      "month-end rules clamp (31 Jan → 28 Feb) and return to the 31st",
+      iso(a) === "2026-02-28" && iso(b) === "2026-03-31" && iso(c) === "2025-02-28",
+    );
+
+    const [rule] = await tx`
+      insert into public.recurring_rules (user_id, name, type, amount, account_id, category_id, frequency, anchor_date, next_due)
+      values (${user.id}, 'Rent', 'expense', 2500000, ${bank.id}, ${food.id}, 'monthly',
+              current_date - 40, current_date - 40)
+      returning id`;
+    const [{ first }] = await tx`select private.post_recurring_for(${user.id}, current_date) as first`;
+    const [{ second }] = await tx`select private.post_recurring_for(${user.id}, current_date) as second`;
+    const [{ next_due, today }] = await tx`
+      select next_due, current_date as today from public.recurring_rules where id = ${rule.id}`;
+    check("recurring: catches up missed months once, then posts nothing more", first === 2 && second === 0);
+    check("recurring: next_due moves past today", iso(next_due) > iso(today));
+
     // A second user, to prove one user can't touch another's data.
     await tx`delete from private.allowed_emails`;
     const [other] =

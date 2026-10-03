@@ -1,36 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { run, type ActionResult } from "@/lib/actions/run";
 import type { Transaction } from "@/lib/types";
-
-export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
 
 const id = z.uuid();
 const date = z.iso.date("Pick a valid date");
 const paise = z.number().int().positive("Enter an amount above zero").max(1e14, "That amount is too large");
-
-async function run<T>(
-  work: (supabase: Awaited<ReturnType<typeof createClient>>) => Promise<T>,
-): Promise<ActionResult<T>> {
-  if (!(await getCurrentUser())) return { ok: false, error: "You're signed out. Refresh and sign in again." };
-  try {
-    const data = await work(await createClient());
-    revalidatePath("/", "layout");
-    return { ok: true, data };
-  } catch (error) {
-    return { ok: false, error: friendlyError(error) };
-  }
-}
-
-function friendlyError(error: unknown): string {
-  const e = error as { code?: string; message?: string; issues?: { message: string }[] };
-  if (e.issues?.length) return e.issues[0].message;
-  if (e.code === "23505") return "One with that name already exists.";
-  if (e.code === "23503") return "It's still used by transactions. Archive it instead.";
-  return e.message ?? "Something went wrong. Please try again.";
-}
 
 // ─── transactions ────────────────────────────────────────────────────────────
 
@@ -57,7 +33,8 @@ const transactionSchema = z
 
 export type TransactionInput = z.input<typeof transactionSchema>;
 
-const TRANSACTION_COLUMNS = "id, type, amount, occurred_on, account_id, to_account_id, category_id, note, created_at";
+const TRANSACTION_COLUMNS =
+  "id, type, amount, occurred_on, account_id, to_account_id, category_id, note, recurring_id, created_at";
 
 export async function saveTransaction(input: TransactionInput): Promise<ActionResult<Transaction>> {
   return run(async (supabase) => {

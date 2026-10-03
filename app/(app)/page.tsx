@@ -5,6 +5,8 @@ import { TransactionList } from "@/components/activity/transaction-list";
 import { CashflowChart } from "@/components/charts/cashflow-chart";
 import { Amount } from "@/components/money/amount";
 import { CategoryBreakdown } from "@/components/pulse/category-breakdown";
+import { PendingConfirmations } from "@/components/recurring/pending";
+import { Upcoming } from "@/components/recurring/upcoming";
 import { SafeToSpendCard } from "@/components/pulse/safe-to-spend-card";
 import { Card, CardLabel } from "@/components/ui/card";
 import {
@@ -13,6 +15,7 @@ import {
   getCategories,
   getCurrentMonth,
   getProfile,
+  getRecurringRules,
   getToday,
   getTransactions,
   spendByCategory,
@@ -20,14 +23,16 @@ import {
 } from "@/lib/data";
 import { safeToSpend } from "@/lib/finance/safe-to-spend";
 import { daysLeft as daysLeftIn } from "@/lib/month";
+import { occurrencesUntil } from "@/lib/recurring";
 
 export default async function PulsePage() {
-  const [profile, month, accounts, categories, cashflow] = await Promise.all([
+  const [profile, month, accounts, categories, cashflow, rules] = await Promise.all([
     getProfile(),
     getCurrentMonth(),
     getAccounts({ includeArchived: true }),
     getCategories({ includeArchived: true }),
     getCashflow(6),
+    getRecurringRules(),
   ]);
   const today = getToday();
   const transactions = await getTransactions({ from: month.start, to: month.end });
@@ -37,10 +42,18 @@ export default async function PulsePage() {
   const hasAccounts = activeAccounts > 0;
   const savingsRate = totals.savingsRate === null ? null : Math.round(totals.savingsRate * 100);
 
+  const activeRules = rules.filter((r) => r.active);
+  const pending = activeRules.filter((r) => r.mode === "confirm" && r.next_due <= today);
+  // Bills still to come this month (including unconfirmed ones) come out of the daily budget now.
+  const committed = activeRules
+    .filter((r) => r.type === "expense")
+    .reduce((sum, r) => sum + occurrencesUntil(r, month.end).length * r.amount, 0);
+
   const daysLeft = daysLeftIn(month, today);
   const budget = safeToSpend({
     income: totals.income,
     spent: totals.spent,
+    committed,
     savingsTargetPct: profile.savingsTargetPct,
     daysTotal: daysLeftIn(month, month.start),
     daysLeft,
@@ -54,6 +67,8 @@ export default async function PulsePage() {
           Hey {profile.displayName || "there"} 👋
         </h1>
       </header>
+
+      <PendingConfirmations rules={pending} categories={categories} />
 
       <Card className="relative overflow-hidden p-6 md:p-8">
         <div aria-hidden className="bg-income/10 absolute -top-24 -right-16 size-64 rounded-full blur-3xl" />
@@ -111,9 +126,19 @@ export default async function PulsePage() {
         </Card>
       ) : (
         <>
-          <SafeToSpendCard result={budget} daysLeft={daysLeft} savingsTargetPct={profile.savingsTargetPct} />
+          <div className="grid gap-5 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <SafeToSpendCard
+                result={budget}
+                daysLeft={daysLeft}
+                savingsTargetPct={profile.savingsTargetPct}
+                committed={committed}
+              />
+            </div>
+            <Upcoming rules={rules} categories={categories} today={today} />
+          </div>
 
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-5 lg:grid-cols-2">
             <CashflowChart months={cashflow} />
             <CategoryBreakdown rows={spendByCategory(transactions, categories)} monthKey={month.key} />
           </div>

@@ -38,7 +38,32 @@ export type Transaction = {
   to_account_id: string | null;
   category_id: string | null;
   note: string | null;
+  recurring_id: string | null;
   created_at: string;
+};
+
+export type RecurringFrequency = "weekly" | "monthly" | "yearly";
+
+export type RecurringRule = {
+  id: string;
+  name: string;
+  type: TransactionType;
+  amount: Paise;
+  account_id: string;
+  to_account_id: string | null;
+  category_id: string | null;
+  frequency: RecurringFrequency;
+  anchor_date: string;
+  next_due: string;
+  end_date: string | null;
+  mode: "auto" | "confirm";
+  active: boolean;
+};
+
+export const FREQUENCIES: Record<RecurringFrequency, string> = {
+  weekly: "Weekly",
+  monthly: "Monthly",
+  yearly: "Yearly",
 };
 
 export const ACCOUNT_TYPES: Record<AccountType, { label: string; emoji: string }> = {

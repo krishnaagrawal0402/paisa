@@ -1,8 +1,9 @@
 "use client";
 
 import { X } from "lucide-react";
-import { AnimatePresence, motion, useDragControls } from "motion/react";
+import { AnimatePresence, motion, useDragControls, usePresence } from "motion/react";
 import { useEffect, useSyncExternalStore } from "react";
+import { cn } from "@/lib/cn";
 
 const DESKTOP = "(min-width: 768px)";
 
@@ -28,7 +29,6 @@ type SheetProps = {
 /** Bottom sheet on phones (drag the handle down to dismiss), centred dialog on desktop. */
 export function Sheet({ open, onClose, title, children }: SheetProps) {
   const isDesktop = useIsDesktop();
-  const drag = useDragControls();
 
   useEffect(() => {
     if (!open) return;
@@ -42,6 +42,43 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
     };
   }, [open, onClose]);
 
+  return (
+    <AnimatePresence>
+      {open && (
+        <SheetLayer key="sheet" title={title} onClose={onClose} isDesktop={isDesktop}>
+          {children}
+        </SheetLayer>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/**
+ * The on-screen layer. While it animates out it stays mounted but goes inert, so
+ * it can't catch taps meant for the page (or a second tap re-submitting its form).
+ */
+function SheetLayer({
+  title,
+  onClose,
+  isDesktop,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  isDesktop: boolean;
+  children: React.ReactNode;
+}) {
+  // usePresence (not useIsPresent): we tell AnimatePresence when the exit is done,
+  // so the layer is always removed, with a timeout as a backstop.
+  const [isPresent, safeToRemove] = usePresence();
+  const drag = useDragControls();
+
+  useEffect(() => {
+    if (isPresent) return;
+    const timer = setTimeout(() => safeToRemove?.(), 700);
+    return () => clearTimeout(timer);
+  }, [isPresent, safeToRemove]);
+
   const motionProps = isDesktop
     ? {
         initial: { opacity: 0, scale: 0.96, y: 12 },
@@ -51,53 +88,58 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
     : { initial: { y: "100%" }, animate: { y: 0 }, exit: { y: "100%" } };
 
   return (
-    <AnimatePresence>
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6">
-          <motion.div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-          />
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-label={title}
-            className="border-line bg-bg-raised/95 pb-safe relative flex max-h-[92dvh] w-full flex-col rounded-t-[28px] border-t shadow-[0_-20px_60px_rgb(0_0_0/0.5)] backdrop-blur-2xl md:max-w-lg md:rounded-[28px] md:border md:pb-0"
-            {...motionProps}
-            transition={{ type: "spring", stiffness: 380, damping: 36 }}
-            drag={isDesktop ? false : "y"}
-            dragControls={drag}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.6 }}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 120 || info.velocity.y > 600) onClose();
-            }}
-          >
-            <div
-              className="flex shrink-0 cursor-grab touch-none justify-center pt-3 pb-1 md:hidden"
-              onPointerDown={(e) => drag.start(e)}
-            >
-              <span className="bg-subtle/50 h-1.5 w-10 rounded-full" />
-            </div>
-            <div className="flex shrink-0 items-center justify-between px-5 pt-1 pb-2 md:pt-5">
-              <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close"
-                className="text-muted hover:bg-glass hover:text-fg grid size-9 place-items-center rounded-full"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
-            <div className="overflow-y-auto px-5 pb-5">{children}</div>
-          </motion.div>
-        </div>
+    <div
+      inert={!isPresent}
+      className={cn(
+        "fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6",
+        !isPresent && "pointer-events-none",
       )}
-    </AnimatePresence>
+    >
+      <motion.div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      />
+      <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="border-line bg-bg-raised/95 pb-safe relative flex max-h-[92dvh] w-full flex-col rounded-t-[28px] border-t shadow-[0_-20px_60px_rgb(0_0_0/0.5)] backdrop-blur-2xl md:max-w-lg md:rounded-[28px] md:border md:pb-0"
+        {...motionProps}
+        transition={{ type: "spring", stiffness: 380, damping: 36 }}
+        drag={isDesktop ? false : "y"}
+        dragControls={drag}
+        dragListener={false}
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={{ top: 0, bottom: 0.6 }}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > 120 || info.velocity.y > 600) onClose();
+        }}
+        onAnimationComplete={() => {
+          if (!isPresent) safeToRemove?.();
+        }}
+      >
+        <div
+          className="flex shrink-0 cursor-grab touch-none justify-center pt-3 pb-1 md:hidden"
+          onPointerDown={(e) => drag.start(e)}
+        >
+          <span className="bg-subtle/50 h-1.5 w-10 rounded-full" />
+        </div>
+        <div className="flex shrink-0 items-center justify-between px-5 pt-1 pb-2 md:pt-5">
+          <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="text-muted hover:bg-glass hover:text-fg grid size-9 place-items-center rounded-full"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+        <div className="overflow-y-auto px-5 pb-5">{children}</div>
+      </motion.div>
+    </div>
   );
 }

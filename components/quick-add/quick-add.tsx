@@ -6,6 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, u
 import { Button } from "@/components/ui/button";
 import { Chip, Segmented } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
+import { AccountChips, Field } from "@/components/ui/form-fields";
 import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { appConfig } from "@/config/app";
@@ -14,7 +15,7 @@ import { cn } from "@/lib/cn";
 import { formatINR } from "@/lib/money";
 import { addDays, todayIn } from "@/lib/month";
 import { parseAmount } from "@/lib/parse/amount";
-import { ACCOUNT_TYPES, type Account, type Category, type Transaction, type TransactionType } from "@/lib/types";
+import type { Account, Category, Transaction, TransactionType } from "@/lib/types";
 
 type QuickAddApi = {
   openNew: (type?: TransactionType) => void;
@@ -360,36 +361,5 @@ function TransactionForm({
         </Button>
       </div>
     </form>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-2">
-      <p className="text-muted text-xs font-medium tracking-[0.08em] uppercase">{label}</p>
-      {children}
-    </div>
-  );
-}
-
-function AccountChips({
-  accounts,
-  value,
-  onChange,
-  tone,
-}: {
-  accounts: Account[];
-  value: string | null;
-  onChange: (id: string) => void;
-  tone: "income" | "expense" | "save";
-}) {
-  return (
-    <div className="-mx-5 flex [scrollbar-width:none] gap-2 overflow-x-auto px-5 pb-1">
-      {accounts.map((a) => (
-        <Chip key={a.id} tone={tone} selected={value === a.id} onClick={() => onChange(a.id)}>
-          <span aria-hidden>{ACCOUNT_TYPES[a.type].emoji}</span> {a.name}
-        </Chip>
-      ))}
-    </div>
   );
 }

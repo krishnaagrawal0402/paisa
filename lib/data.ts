@@ -3,7 +3,7 @@ import { cache } from "react";
 import { appConfig } from "@/config/app";
 import { financialMonthFor, financialMonthFromKey, shiftMonthKey, todayIn, type FinancialMonth } from "@/lib/month";
 import { createClient } from "@/lib/supabase/server";
-import type { AccountWithBalance, Category, Transaction, TransactionType } from "@/lib/types";
+import type { AccountWithBalance, Category, RecurringRule, Transaction, TransactionType } from "@/lib/types";
 
 /** Read helpers for Server Components. All queries run as the user, under RLS. */
 
@@ -19,12 +19,37 @@ export const getProfile = cache(async () => {
 
 export const getToday = () => todayIn(appConfig.timeZone);
 
+/**
+ * Posts any recurring entries that fell due while nobody was looking. pg_cron
+ * does this every morning too; both are idempotent. Deduped per request.
+ */
+export const postDueRecurring = cache(async () => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("post_due_recurring", { p_today: getToday() });
+  if (error) console.error("post_due_recurring failed:", error.message);
+  return (data as number | null) ?? 0;
+});
+
+export const getRecurringRules = cache(async (): Promise<RecurringRule[]> => {
+  await postDueRecurring();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("recurring_rules")
+    .select(
+      "id, name, type, amount, account_id, to_account_id, category_id, frequency, anchor_date, next_due, end_date, mode, active",
+    )
+    .order("next_due");
+  if (error) throw error;
+  return (data ?? []).map((r) => ({ ...r, amount: Number(r.amount) }));
+});
+
 export const getCurrentMonth = cache(async (): Promise<FinancialMonth> => {
   const { monthStartDay } = await getProfile();
   return financialMonthFor(getToday(), monthStartDay);
 });
 
 export const getAccounts = cache(async ({ includeArchived = false } = {}): Promise<AccountWithBalance[]> => {
+  await postDueRecurring();
   const supabase = await createClient();
   let query = supabase
     .from("accounts")
@@ -74,10 +99,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid = (value: unknown): value is string => typeof value === "string" && UUID.test(value);
 
 export async function getTransactions(filters: TransactionFilters): Promise<Transaction[]> {
+  await postDueRecurring();
   const supabase = await createClient();
   let query = supabase
     .from("transactions")
-    .select("id, type, amount, occurred_on, account_id, to_account_id, category_id, note, created_at")
+    .select("id, type, amount, occurred_on, account_id, to_account_id, category_id, note, recurring_id, created_at")
     .gte("occurred_on", filters.from)
     .lte("occurred_on", filters.to)
     .order("occurred_on", { ascending: false })
@@ -123,6 +149,7 @@ export async function getCashflow(months = 6): Promise<CashflowMonth[]> {
   const keys = Array.from({ length: months }, (_, i) => shiftMonthKey(current.key, i - (months - 1)));
   const first = financialMonthFromKey(keys[0], monthStartDay);
 
+  await postDueRecurring();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("daily_totals", { p_from: first.start, p_to: current.end });
   if (error) throw error;

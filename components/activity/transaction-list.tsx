@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight } from "lucide-react";
+import { ArrowLeftRight, Repeat } from "lucide-react";
 import { useQuickAdd } from "@/components/quick-add/quick-add";
 import { cn } from "@/lib/cn";
 import { formatINR } from "@/lib/money";
@@ -72,7 +72,10 @@ export function TransactionRow({ transaction: t, accounts, categories }: Lookups
           {isTransfer ? <ArrowLeftRight className="text-save size-4" /> : (category?.emoji ?? "❔")}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{title}</span>
+          <span className="flex items-center gap-1.5 truncate text-sm font-medium">
+            {title}
+            {t.recurring_id && <Repeat className="text-subtle size-3 shrink-0" aria-label="Recurring" />}
+          </span>
           <span className="text-muted block truncate text-xs">{subtitle}</span>
         </span>
         <span
