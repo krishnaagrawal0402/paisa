@@ -7,4 +7,6 @@ export const appConfig = {
   tagline: "Know where your money goes.",
   description: "A simple, open-source money manager: salary, spends, investments and savings at a glance.",
   themeColor: "#07070b",
+  /** "Today" and month boundaries are computed in this time zone. */
+  timeZone: "Asia/Kolkata",
 } as const;

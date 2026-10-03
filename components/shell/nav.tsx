@@ -4,6 +4,7 @@ import { Activity, Gauge, Plus, Settings, Target, TrendingUp, type LucideIcon } 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo, LogoMark } from "@/components/brand/logo";
+import { useQuickAdd } from "@/components/quick-add/quick-add";
 import { cn } from "@/lib/cn";
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
@@ -20,24 +21,23 @@ function useIsActive() {
   return (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 }
 
-// Quick-add sheet arrives in M1; until then the button goes to Activity.
-const ADD_HREF = "/activity";
-
 /** Desktop: fixed left sidebar. */
 export function Sidebar() {
   const isActive = useIsActive();
+  const { openNew } = useQuickAdd();
   return (
     <aside className="border-line bg-bg/40 fixed inset-y-0 left-0 hidden w-64 flex-col border-r px-4 py-6 backdrop-blur-xl md:flex">
       <Link href="/" className="px-2">
         <Logo />
       </Link>
 
-      <Link
-        href={ADD_HREF}
+      <button
+        type="button"
+        onClick={() => openNew()}
         className="bg-income text-bg mt-8 flex h-11 items-center justify-center gap-2 rounded-full text-sm font-semibold shadow-[0_0_24px_rgb(61_255_154/0.35)] transition hover:brightness-110"
       >
         <Plus className="size-4" strokeWidth={2.5} /> Add transaction
-      </Link>
+      </button>
 
       <nav className="mt-6 flex flex-1 flex-col gap-1">
         {NAV.map(({ href, label, icon: Icon }) => (
@@ -92,6 +92,7 @@ export function MobileHeader() {
 /** Mobile: bottom tab bar with the raised + button in the middle. */
 export function TabBar() {
   const isActive = useIsActive();
+  const { openNew } = useQuickAdd();
   const [left, right] = [NAV.slice(0, 2), NAV.slice(2)];
 
   const tab = ({ href, label, icon: Icon }: NavItem) => (
@@ -114,13 +115,14 @@ export function TabBar() {
       <div className="flex items-end px-2">
         {left.map(tab)}
         <div className="flex flex-1 justify-center">
-          <Link
-            href={ADD_HREF}
+          <button
+            type="button"
+            onClick={() => openNew()}
             aria-label="Add transaction"
             className="from-income to-save text-bg -mt-6 grid size-14 place-items-center rounded-full bg-linear-to-br shadow-[0_0_28px_rgb(61_255_154/0.5)] transition active:scale-95"
           >
             <Plus className="size-7" strokeWidth={2.5} />
-          </Link>
+          </button>
         </div>
         {right.map(tab)}
       </div>

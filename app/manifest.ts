@@ -13,6 +13,10 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: appConfig.themeColor,
     theme_color: appConfig.themeColor,
     categories: ["finance", "productivity"],
+    shortcuts: [
+      { name: "Add expense", short_name: "Expense", url: "/?add=expense" },
+      { name: "Add income", short_name: "Income", url: "/?add=income" },
+    ],
     icons: [
       { src: "/icons/192", sizes: "192x192", type: "image/png" },
       { src: "/icons/512", sizes: "512x512", type: "image/png" },
