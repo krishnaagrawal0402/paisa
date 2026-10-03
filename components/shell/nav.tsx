@@ -4,6 +4,7 @@ import { Activity, Gauge, Plus, Settings, Target, TrendingUp, type LucideIcon } 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo, LogoMark } from "@/components/brand/logo";
+import { PrivacyToggle } from "@/components/privacy/privacy-toggle";
 import { useQuickAdd } from "@/components/quick-add/quick-add";
 import { cn } from "@/lib/cn";
 
@@ -56,6 +57,7 @@ export function Sidebar() {
         ))}
       </nav>
 
+      <PrivacyToggle withLabel className="hover:bg-glass flex h-11 items-center gap-3 rounded-xl px-3 text-sm" />
       <Link
         href="/settings"
         className={cn(
@@ -77,13 +79,16 @@ export function MobileHeader() {
         <Link href="/" className="flex items-center gap-2">
           <LogoMark className="size-8" />
         </Link>
-        <Link
-          href="/settings"
-          aria-label="Settings"
-          className="text-muted hover:text-fg grid size-10 place-items-center rounded-full"
-        >
-          <Settings className="size-5" />
-        </Link>
+        <div className="flex items-center">
+          <PrivacyToggle className="grid size-10 place-items-center rounded-full" />
+          <Link
+            href="/settings"
+            aria-label="Settings"
+            className="text-muted hover:text-fg grid size-10 place-items-center rounded-full"
+          >
+            <Settings className="size-5" />
+          </Link>
+        </div>
       </div>
     </header>
   );

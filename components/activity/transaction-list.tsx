@@ -35,7 +35,7 @@ export function TransactionList({
           <section key={date}>
             <div className="text-muted mb-2 flex items-baseline justify-between px-1 text-xs font-medium tracking-[0.06em] uppercase">
               <h3>{dayLabel(date, today)}</h3>
-              {spent > 0 && <span className="tabular-nums">−{formatINR(spent)}</span>}
+              {spent > 0 && <span className="money tabular-nums">−{formatINR(spent)}</span>}
             </div>
             <ul className="glass divide-line divide-y overflow-hidden">
               {rows.map((t) => (
@@ -77,7 +77,7 @@ export function TransactionRow({ transaction: t, accounts, categories }: Lookups
         </span>
         <span
           className={cn(
-            "shrink-0 text-sm font-semibold tabular-nums",
+            "money shrink-0 text-sm font-semibold tabular-nums",
             t.type === "income" && "text-income",
             t.type === "expense" && "text-fg",
             isTransfer && "text-muted",

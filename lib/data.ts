@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { appConfig } from "@/config/app";
-import { financialMonthFor, todayIn, type FinancialMonth } from "@/lib/month";
+import { financialMonthFor, financialMonthFromKey, shiftMonthKey, todayIn, type FinancialMonth } from "@/lib/month";
 import { createClient } from "@/lib/supabase/server";
 import type { AccountWithBalance, Category, Transaction, TransactionType } from "@/lib/types";
 
@@ -9,8 +9,12 @@ import type { AccountWithBalance, Category, Transaction, TransactionType } from 
 
 export const getProfile = cache(async () => {
   const supabase = await createClient();
-  const { data } = await supabase.from("profiles").select("display_name, month_start_day").single();
-  return { displayName: data?.display_name ?? "", monthStartDay: data?.month_start_day ?? 1 };
+  const { data } = await supabase.from("profiles").select("display_name, month_start_day, savings_target_pct").single();
+  return {
+    displayName: data?.display_name ?? "",
+    monthStartDay: data?.month_start_day ?? 1,
+    savingsTargetPct: data?.savings_target_pct ?? 20,
+  };
 });
 
 export const getToday = () => todayIn(appConfig.timeZone);
@@ -109,4 +113,57 @@ export function totalsOf(transactions: Transaction[]): MonthTotals {
   }
   const saved = income - spent;
   return { income, spent, saved, savingsRate: income > 0 ? saved / income : null };
+}
+
+export type CashflowMonth = { key: string; label: string; income: number; spent: number };
+
+/** Income and spend per financial month, oldest first, ending with the current month. */
+export async function getCashflow(months = 6): Promise<CashflowMonth[]> {
+  const [{ monthStartDay }, current] = await Promise.all([getProfile(), getCurrentMonth()]);
+  const keys = Array.from({ length: months }, (_, i) => shiftMonthKey(current.key, i - (months - 1)));
+  const first = financialMonthFromKey(keys[0], monthStartDay);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("daily_totals", { p_from: first.start, p_to: current.end });
+  if (error) throw error;
+
+  const byKey = new Map(
+    keys.map((key) => [
+      key,
+      {
+        key,
+        label: new Intl.DateTimeFormat("en-IN", { month: "short", timeZone: "UTC" }).format(
+          new Date(`${key}-01T00:00:00Z`),
+        ),
+        income: 0,
+        spent: 0,
+      },
+    ]),
+  );
+  for (const day of (data ?? []) as { occurred_on: string; type: string; total: number }[]) {
+    const month = byKey.get(financialMonthFor(day.occurred_on, monthStartDay).key);
+    if (!month) continue;
+    if (day.type === "income") month.income += Number(day.total);
+    else month.spent += Number(day.total);
+  }
+  return [...byKey.values()];
+}
+
+export type CategorySpend = { id: string | null; name: string; emoji: string; amount: number };
+
+/** Expenses grouped by category, biggest first; the tail beyond `top` folds into "Other". */
+export function spendByCategory(transactions: Transaction[], categories: Category[], top = 6): CategorySpend[] {
+  const totals = new Map<string | null, number>();
+  for (const t of transactions) {
+    if (t.type === "expense") totals.set(t.category_id, (totals.get(t.category_id) ?? 0) + t.amount);
+  }
+  const rows = [...totals]
+    .map(([id, amount]) => {
+      const category = categories.find((c) => c.id === id);
+      return { id, name: category?.name ?? "Uncategorised", emoji: category?.emoji ?? "❔", amount };
+    })
+    .sort((a, b) => b.amount - a.amount);
+  if (rows.length <= top + 1) return rows;
+  const rest = rows.slice(top).reduce((sum, r) => sum + r.amount, 0);
+  return [...rows.slice(0, top), { id: null, name: `${rows.length - top} others`, emoji: "…", amount: rest }];
 }

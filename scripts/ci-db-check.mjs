@@ -71,15 +71,26 @@ try {
     await tx`rollback to savepoint cross_user`;
     check("a transaction can't reference another user's account", crossBlocked);
 
+    await tx`
+      insert into public.transactions (user_id, type, amount, occurred_on, account_id)
+      values (${other.id}, 'expense', 99900, current_date, ${otherAccount.id})`;
+
     await tx`set local role authenticated`;
     await tx`select set_config('request.jwt.claims', ${JSON.stringify({ sub: user.id, role: "authenticated" })}, true)`;
     const visible = await tx`select id from public.accounts`;
     const visibleBalances = await tx`select account_id from public.account_balances`;
+    const daily = Object.fromEntries(
+      (await tx`select type, total from public.daily_totals(current_date, current_date)`).map((r) => [
+        r.type,
+        Number(r.total),
+      ]),
+    );
     await tx`reset role`;
     check(
       "RLS: a user sees only their own accounts and balances",
       visible.length === 2 && visibleBalances.length === 2 && !visible.some((a) => a.id === otherAccount.id),
     );
+    check("daily_totals sums only the caller's transactions", daily.income === 100000 && daily.expense === 30000);
 
     throw ROLLBACK;
   });

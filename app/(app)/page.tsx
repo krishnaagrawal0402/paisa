@@ -2,30 +2,49 @@ import { ArrowDownLeft, ArrowRight, ArrowUpRight, PiggyBank, Sparkles, TrendingU
 import Link from "next/link";
 import { AddTransactionButton } from "@/components/activity/add-button";
 import { TransactionList } from "@/components/activity/transaction-list";
+import { CashflowChart } from "@/components/charts/cashflow-chart";
 import { Amount } from "@/components/money/amount";
+import { CategoryBreakdown } from "@/components/pulse/category-breakdown";
+import { SafeToSpendCard } from "@/components/pulse/safe-to-spend-card";
 import { Card, CardLabel } from "@/components/ui/card";
 import {
   getAccounts,
+  getCashflow,
   getCategories,
   getCurrentMonth,
   getProfile,
   getToday,
   getTransactions,
+  spendByCategory,
   totalsOf,
 } from "@/lib/data";
+import { safeToSpend } from "@/lib/finance/safe-to-spend";
+import { daysLeft as daysLeftIn } from "@/lib/month";
 
 export default async function PulsePage() {
-  const [profile, month, accounts, categories] = await Promise.all([
+  const [profile, month, accounts, categories, cashflow] = await Promise.all([
     getProfile(),
     getCurrentMonth(),
     getAccounts({ includeArchived: true }),
     getCategories({ includeArchived: true }),
+    getCashflow(6),
   ]);
+  const today = getToday();
   const transactions = await getTransactions({ from: month.start, to: month.end });
   const totals = totalsOf(transactions);
   const netWorth = accounts.reduce((sum, a) => sum + a.balance, 0);
-  const hasAccounts = accounts.some((a) => !a.archived);
+  const activeAccounts = accounts.filter((a) => !a.archived).length;
+  const hasAccounts = activeAccounts > 0;
   const savingsRate = totals.savingsRate === null ? null : Math.round(totals.savingsRate * 100);
+
+  const daysLeft = daysLeftIn(month, today);
+  const budget = safeToSpend({
+    income: totals.income,
+    spent: totals.spent,
+    savingsTargetPct: profile.savingsTargetPct,
+    daysTotal: daysLeftIn(month, month.start),
+    daysLeft,
+  });
 
   return (
     <div className="space-y-5">
@@ -39,13 +58,13 @@ export default async function PulsePage() {
       <Card className="relative overflow-hidden p-6 md:p-8">
         <div aria-hidden className="bg-income/10 absolute -top-24 -right-16 size-64 rounded-full blur-3xl" />
         <CardLabel>Net worth</CardLabel>
-        <p className="glow-income mt-2 text-4xl font-semibold tracking-tight md:text-5xl">
+        <p className="glow-income mt-2 text-5xl font-semibold tracking-tight md:text-6xl">
           <Amount paise={netWorth} />
         </p>
         <p className="text-muted mt-2 text-sm">
           {hasAccounts ? (
             <>
-              Across {accounts.filter((a) => !a.archived).length} accounts.{" "}
+              Across {activeAccounts} {activeAccounts === 1 ? "account" : "accounts"}.{" "}
               <Link href="/wealth" className="text-save underline-offset-4 hover:underline">
                 See all
               </Link>
@@ -90,29 +109,40 @@ export default async function PulsePage() {
             </Link>
           </div>
         </Card>
-      ) : transactions.length === 0 ? (
-        <Card className="py-10 text-center">
-          <p className="font-medium">Nothing logged this month yet</p>
-          <p className="text-muted mt-1 text-sm">Your salary, rent, that coffee. It all counts.</p>
-          <div className="mt-5">
-            <AddTransactionButton label="Log your first one" />
-          </div>
-        </Card>
       ) : (
-        <section className="space-y-3">
-          <div className="flex items-baseline justify-between px-1">
-            <h2 className="text-lg font-semibold tracking-tight">Recent</h2>
-            <Link href="/activity" className="text-save text-sm hover:underline">
-              See all
-            </Link>
+        <>
+          <SafeToSpendCard result={budget} daysLeft={daysLeft} savingsTargetPct={profile.savingsTargetPct} />
+
+          <div className="grid gap-5 md:grid-cols-2">
+            <CashflowChart months={cashflow} />
+            <CategoryBreakdown rows={spendByCategory(transactions, categories)} monthKey={month.key} />
           </div>
-          <TransactionList
-            transactions={transactions.slice(0, 5)}
-            today={getToday()}
-            accounts={accounts}
-            categories={categories}
-          />
-        </section>
+
+          {transactions.length === 0 ? (
+            <Card className="py-10 text-center">
+              <p className="font-medium">Nothing logged this month yet</p>
+              <p className="text-muted mt-1 text-sm">Your salary, rent, that coffee. It all counts.</p>
+              <div className="mt-5">
+                <AddTransactionButton label="Log your first one" />
+              </div>
+            </Card>
+          ) : (
+            <section className="space-y-3">
+              <div className="flex items-baseline justify-between px-1">
+                <h2 className="text-lg font-semibold tracking-tight">Recent</h2>
+                <Link href="/activity" className="text-save text-sm hover:underline">
+                  See all
+                </Link>
+              </div>
+              <TransactionList
+                transactions={transactions.slice(0, 5)}
+                today={today}
+                accounts={accounts}
+                categories={categories}
+              />
+            </section>
+          )}
+        </>
       )}
     </div>
   );

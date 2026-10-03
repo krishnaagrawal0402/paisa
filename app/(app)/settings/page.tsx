@@ -24,7 +24,11 @@ export default async function SettingsPage() {
       <Card>
         <CardLabel>Profile</CardLabel>
         <p className="text-muted mt-1 text-sm">{user?.email}</p>
-        <ProfileForm displayName={profile.displayName} monthStartDay={profile.monthStartDay} />
+        <ProfileForm
+          displayName={profile.displayName}
+          monthStartDay={profile.monthStartDay}
+          savingsTargetPct={profile.savingsTargetPct}
+        />
       </Card>
 
       <ul className="glass divide-line divide-y overflow-hidden">

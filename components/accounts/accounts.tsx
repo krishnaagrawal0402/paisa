@@ -107,7 +107,10 @@ function AccountRows({
               </span>
               <span className="text-right">
                 <span
-                  className={cn("block text-sm font-semibold tabular-nums", (owed || a.balance < 0) && "text-expense")}
+                  className={cn(
+                    "money block text-sm font-semibold tabular-nums",
+                    (owed || a.balance < 0) && "text-expense",
+                  )}
                 >
                   {formatINR(owed ? -a.balance : a.balance)}
                 </span>

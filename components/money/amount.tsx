@@ -11,11 +11,20 @@ type AmountProps = {
   sign?: boolean;
   /** Count up from zero on first render. */
   animated?: boolean;
+  /** Equal-width digits, for numbers that line up in columns. Off for standalone figures. */
+  tabular?: boolean;
   className?: string;
 };
 
-/** A rupee amount with tabular digits and an optional count-up. */
-export function Amount({ paise, compact = false, sign = false, animated = true, className }: AmountProps) {
+/** A rupee amount with an optional count-up. Blurs in privacy mode. */
+export function Amount({
+  paise,
+  compact = false,
+  sign = false,
+  animated = true,
+  tabular = false,
+  className,
+}: AmountProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const reduceMotion = useReducedMotion();
   const format = (value: number) =>
@@ -40,7 +49,7 @@ export function Amount({ paise, compact = false, sign = false, animated = true, 
   }, [paise, compact, sign, animated, reduceMotion]);
 
   return (
-    <span ref={ref} className={cn("tabular-nums", className)}>
+    <span ref={ref} className={cn("money", tabular && "tabular-nums", className)}>
       {format(paise)}
     </span>
   );

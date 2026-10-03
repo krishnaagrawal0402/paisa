@@ -114,7 +114,7 @@ function Total({ label, value, className }: { label: string; value: string; clas
   return (
     <Card className="p-3 md:p-4">
       <p className="text-muted text-[11px] font-medium tracking-[0.08em] uppercase">{label}</p>
-      <p className={`mt-1 truncate text-base font-semibold tabular-nums md:text-lg ${className}`}>{value}</p>
+      <p className={`money mt-1 truncate text-base font-semibold tabular-nums md:text-lg ${className}`}>{value}</p>
     </Card>
   );
 }

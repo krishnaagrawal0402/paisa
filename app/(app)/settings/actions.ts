@@ -8,6 +8,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 const profileSchema = z.object({
   display_name: z.string().trim().min(1, "Name can't be empty").max(40),
   month_start_day: z.coerce.number().int().min(1).max(28),
+  savings_target_pct: z.coerce.number().int().min(0).max(90),
 });
 
 export type ProfileState = { ok?: boolean; error?: string };

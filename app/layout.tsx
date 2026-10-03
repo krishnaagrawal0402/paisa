@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Aurora } from "@/components/brand/aurora";
+import { privacyBootScript } from "@/lib/privacy";
 import { appConfig } from "@/config/app";
 import "./globals.css";
 
@@ -32,7 +33,15 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en-IN" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    // suppressHydrationWarning: the privacy script may add a class to <html> before React hydrates.
+    <html
+      lang="en-IN"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: privacyBootScript }} />
+      </head>
       <body className="min-h-full">
         <Aurora />
         {children}
