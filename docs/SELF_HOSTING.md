@@ -40,10 +40,11 @@ These two settings live in Supabase Auth config rather than the database, so set
 1. **Authentication → URL Configuration**
    - **Site URL:** your app's URL (`https://paisa-you.vercel.app`, or `http://localhost:3000` for local-only)
    - **Redirect URLs:** add `https://paisa-you.vercel.app/auth/callback` and `http://localhost:3000/auth/callback`
-2. **Authentication → Emails → Magic Link:** replace the template body with the contents of [`supabase/templates/magic_link.html`](../supabase/templates/magic_link.html).
+2. **Optional (needs custom SMTP): Authentication → Emails → Magic link or OTP.** Replace the template body with the contents of [`supabase/templates/magic_link.html`](../supabase/templates/magic_link.html).
    This adds a **6-digit code** to the email. You need the code when Paisa is installed as an app on your phone, because tapping a link there opens the browser instead of the app.
+   Hosted Supabase only lets you edit templates once custom SMTP is set up (Authentication → Emails → SMTP Settings; [Resend](https://resend.com)'s free tier works). Without it, the default email contains just the link, which works fine when opened **in the same browser** you requested it from.
 
-> Supabase's built-in email sender is rate-limited (a few emails per hour), which is fine for one or two people. For more, add custom SMTP (for example Resend) under Authentication → Emails → SMTP Settings.
+> Supabase's built-in email sender is rate-limited (a few emails per hour), which is fine for one or two people. Custom SMTP lifts that limit too.
 
 ## 4. Optional: Google sign-in
 

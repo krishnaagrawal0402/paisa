@@ -72,8 +72,8 @@ export function LoginForm({ googleEnabled, initialError }: { googleEnabled: bool
           exit={{ opacity: 0, x: 12 }}
         >
           <p className="text-muted text-sm">
-            We sent a link and a 6-digit code to <span className="text-fg">{current.email}</span>. Tap the link on this
-            device, or enter the code:
+            Check <span className="text-fg">{current.email}</span> and open the sign-in link in this browser. If the
+            email has a 6-digit code, you can enter it here instead:
           </p>
           <form action={action} className="mt-4 space-y-3">
             <label htmlFor="code" className="sr-only">
