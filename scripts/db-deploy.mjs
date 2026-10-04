@@ -7,7 +7,7 @@
  * Runs automatically on Vercel (the `vercel-build` script) and from `npm run setup`.
  * Run it by hand with `npm run db:deploy`.
  */
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import nextEnv from "@next/env";
 import postgres from "postgres";
 
@@ -32,9 +32,18 @@ const allowedEmails = [
 ];
 
 console.log("→ Applying migrations…");
-execFileSync("npx", ["--no-install", "supabase", "db", "push", "--db-url", dbUrl, "--include-all", "--yes"], {
+// spawnSync, not execFileSync: on failure execFileSync's error message repeats the
+// full command line, which would print the database password into (CI) logs.
+const push = spawnSync("npx", ["--no-install", "supabase", "db", "push", "--db-url", dbUrl, "--include-all", "--yes"], {
   stdio: "inherit",
 });
+if (push.status !== 0) {
+  console.error(
+    "✗ Migrations failed (see the message above). If it says the password failed, check SUPABASE_DB_URL:\n" +
+      "  Session pooler string, password URL-encoded, no [brackets]. See docs/SELF_HOSTING.md.",
+  );
+  process.exit(1);
+}
 
 console.log(`→ Syncing sign-up allowlist (${allowedEmails.length || "open sign-ups"})…`);
 const isLocal = /@(localhost|127\.0\.0\.1)[:/]/.test(dbUrl);
@@ -46,8 +55,12 @@ try {
       await tx`insert into private.allowed_emails ${tx(allowedEmails.map((email) => ({ email })))}`;
     }
   });
+} catch (error) {
+  // Print only the message: connection errors can carry connection details.
+  console.error(`✗ Allowlist sync failed: ${error.message}`);
+  process.exitCode = 1;
 } finally {
   await sql.end();
 }
 
-console.log("✓ Database is up to date.");
+if (!process.exitCode) console.log("✓ Database is up to date.");
