@@ -77,7 +77,7 @@ Want to help? [CONTRIBUTING.md](CONTRIBUTING.md) explains how the code is laid o
 
 ## Roadmap
 
-Phase 1 (personal money management) is complete. **Phase 2** adds Splitwise-style shared expenses: groups, splits and settling up. See [docs/PLAN.md](docs/PLAN.md).
+Phase 1 (personal money management) is complete. **Phase 2** adds Splitwise-style shared expenses: groups, splits that work even with friends who never sign up, settling up, and your share flowing into your personal numbers. It's planned but not started; the brief is in [docs/PHASE2.md](docs/PHASE2.md).
 
 ## License
 

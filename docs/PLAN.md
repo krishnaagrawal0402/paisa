@@ -304,6 +304,8 @@ Goal: an engineer who finds the repo has **their own private instance running in
 
 ## 9. Phase 2 readiness (Splitwise)
 
+The full Phase 2 brief (scope, data model, ledger integration, open questions, milestones S1–S5) is in [PHASE2.md](PHASE2.md).
+
 Not built now, but Phase 1 avoids blocking it:
 
 - Users are real auth users with `profiles`, so they can become friends and group members.
