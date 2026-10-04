@@ -1,4 +1,4 @@
-import { Chip } from "@/components/ui/chip";
+import { Chip, type ChipTone } from "@/components/ui/chip";
 import { ACCOUNT_TYPES, type Account } from "@/lib/types";
 
 /** Small building blocks shared by the add/edit sheets. */
@@ -21,7 +21,7 @@ export function AccountChips({
   accounts: Account[];
   value: string | null;
   onChange: (id: string) => void;
-  tone: "income" | "expense" | "save";
+  tone: ChipTone;
 }) {
   return (
     <div className="-mx-5 flex [scrollbar-width:none] gap-2 overflow-x-auto px-5 pb-1">

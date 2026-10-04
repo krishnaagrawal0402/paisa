@@ -41,6 +41,11 @@ export function formatINR(paise: Paise, { sign = false, exact = false }: FormatO
   return sign && paise > 0 ? `+${text}` : text;
 }
 
+/** Whole rupees, for computed values (interest, NAV × units, EMIs) where paise are just noise. */
+export function formatRupees(paise: Paise, options: FormatOptions = {}): string {
+  return formatINR(Math.round(paise / 100) * 100, { ...options, exact: false });
+}
+
 const COMPACT_UNITS = [
   { min: 1_00_00_000, suffix: "Cr" },
   { min: 1_00_000, suffix: "L" },

@@ -4,7 +4,9 @@ import { ArrowLeftRight, Pause, Play, Plus, Repeat, Trash2 } from "lucide-react"
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardLabel } from "@/components/ui/card";
-import { Chip, Segmented } from "@/components/ui/chip";
+import { Chip, Segmented, type ChipTone } from "@/components/ui/chip";
+import type { HoldingOption } from "@/components/quick-add/quick-add";
+import { ASSET_CLASSES } from "@/lib/finance/holdings";
 import { AccountChips, Field } from "@/components/ui/form-fields";
 import { Input } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
@@ -16,35 +18,33 @@ import { formatCompactINR, formatINR } from "@/lib/money";
 import { todayIn } from "@/lib/month";
 import { parseAmount } from "@/lib/parse/amount";
 import { formatDue, monthlyEquivalent } from "@/lib/recurring";
-import {
-  FREQUENCIES,
-  type Account,
-  type Category,
-  type RecurringFrequency,
-  type RecurringRule,
-  type TransactionType,
-} from "@/lib/types";
+import { FREQUENCIES, type Account, type Category, type RecurringFrequency, type RecurringRule } from "@/lib/types";
 
 type Editing = RecurringRule | "new" | null;
 
-const GROUPS: { type: TransactionType; title: string }[] = [
+type RuleType = RecurringRule["type"];
+
+const GROUPS: { type: RuleType; title: string }[] = [
   { type: "income", title: "Income" },
   { type: "expense", title: "Bills & subscriptions" },
-  { type: "transfer", title: "Transfers & savings" },
+  { type: "invest", title: "SIPs & investing" },
+  { type: "transfer", title: "Transfers between accounts" },
 ];
 
 export function Recurring({
   rules,
   accounts,
   categories,
+  holdings,
 }: {
   rules: RecurringRule[];
   accounts: Account[];
   categories: Category[];
+  holdings: HoldingOption[];
 }) {
   const [editing, setEditing] = useState<Editing>(null);
   const active = rules.filter((r) => r.active);
-  const monthly = (type: TransactionType, filter: (r: RecurringRule) => boolean = () => true) =>
+  const monthly = (type: RuleType, filter: (r: RecurringRule) => boolean = () => true) =>
     active
       .filter((r) => r.type === type && filter(r))
       .reduce((sum, r) => sum + monthlyEquivalent(r.amount, r.frequency), 0);
@@ -73,10 +73,11 @@ export function Recurring({
         </button>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Summary label="Income" value={monthly("income")} />
             <Summary label="Fixed costs" value={monthly("expense")} />
             <Summary label="Subscriptions" value={monthly("expense", (r) => r.category_id === subscriptionsId)} />
+            <Summary label="SIPs" value={monthly("invest")} />
           </div>
 
           {GROUPS.map(({ type, title }) => {
@@ -107,6 +108,7 @@ export function Recurring({
             rule={editing === "new" ? null : editing}
             accounts={accounts}
             categories={categories}
+            holdings={holdings}
             onDone={() => setEditing(null)}
           />
         )}
@@ -148,7 +150,13 @@ function RuleRow({
         )}
       >
         <span className="bg-glass-hover grid size-10 shrink-0 place-items-center rounded-full text-lg">
-          {rule.type === "transfer" ? <ArrowLeftRight className="text-save size-4" /> : (category?.emoji ?? "🔁")}
+          {rule.type === "transfer" ? (
+            <ArrowLeftRight className="text-save size-4" />
+          ) : rule.type === "invest" ? (
+            "📈"
+          ) : (
+            (category?.emoji ?? "🔁")
+          )}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{rule.name}</span>
@@ -162,6 +170,7 @@ function RuleRow({
             "money shrink-0 text-sm font-semibold tabular-nums",
             rule.type === "income" && "text-income",
             rule.type === "transfer" && "text-muted",
+            rule.type === "invest" && "text-invest",
           )}
         >
           {rule.type === "income" ? "+" : rule.type === "expense" ? "−" : ""}
@@ -172,26 +181,32 @@ function RuleRow({
   );
 }
 
-const TYPE_STYLE: Record<TransactionType, { label: string; active: string; chip: "income" | "expense" | "save" }> = {
+const TYPE_STYLE: Record<RuleType, { label: string; active: string; chip: ChipTone }> = {
   expense: { label: "Expense", active: "bg-expense text-bg", chip: "expense" },
   income: { label: "Income", active: "bg-income text-bg", chip: "income" },
   transfer: { label: "Transfer", active: "bg-save text-bg", chip: "save" },
+  invest: { label: "SIP", active: "bg-invest text-bg", chip: "invest" },
 };
 
 function RecurringForm({
   rule,
   accounts,
   categories,
+  holdings,
   onDone,
 }: {
   rule: RecurringRule | null;
   accounts: Account[];
   categories: Category[];
+  holdings: HoldingOption[];
   onDone: () => void;
 }) {
   const toast = useToast();
   const today = todayIn(appConfig.timeZone);
-  const [type, setType] = useState<TransactionType>(rule?.type ?? "expense");
+  const [type, setType] = useState<RuleType>(rule?.type ?? "expense");
+  const [holdingId, setHoldingId] = useState<string | null>(
+    rule?.holding_id ?? (holdings.length === 1 ? holdings[0].id : null),
+  );
   const [name, setName] = useState(rule?.name ?? "");
   const [amountText, setAmountText] = useState(rule ? String(rule.amount / 100) : "");
   const [categoryId, setCategoryId] = useState<string | null>(rule?.category_id ?? null);
@@ -218,7 +233,7 @@ function RecurringForm({
     return <p className="text-muted py-6 text-center text-sm">Add an account on the Wealth page first.</p>;
   }
 
-  function changeType(next: TransactionType) {
+  function changeType(next: RuleType) {
     setType(next);
     if (categories.find((c) => c.id === categoryId)?.kind !== next) setCategoryId(null);
     // Salaries vary month to month, so default income rules to "ask me".
@@ -236,6 +251,7 @@ function RecurringForm({
     if (!amount) return setError("Enter an amount, like 25000 or 1.2L");
     if (!accountId) return setError("Pick an account");
     if (type === "transfer" && !destination) return setError("Pick a different account to move the money to");
+    if (type === "invest" && !holdingId) return setError("Pick the fund or investment");
     setError(null);
     startTransition(async () => {
       const result = await saveRecurring({
@@ -246,6 +262,7 @@ function RecurringForm({
         account_id: accountId,
         to_account_id: destination,
         category_id: categoryId,
+        holding_id: holdingId,
         frequency,
         anchor_date: anchor,
         end_date: endDate || null,
@@ -289,11 +306,13 @@ function RecurringForm({
       <Segmented
         value={type}
         onChange={changeType}
-        options={(["expense", "income", "transfer"] as const).map((t) => ({
-          value: t,
-          label: TYPE_STYLE[t].label,
-          activeClass: TYPE_STYLE[t].active,
-        }))}
+        options={(["expense", "income", "transfer", "invest"] as const)
+          .filter((t) => t !== "invest" || holdings.length > 0)
+          .map((t) => ({
+            value: t,
+            label: TYPE_STYLE[t].label,
+            activeClass: TYPE_STYLE[t].active,
+          }))}
       />
 
       <div className="grid grid-cols-[1fr_auto] gap-3">
@@ -317,7 +336,28 @@ function RecurringForm({
         </div>
       </div>
 
-      {type !== "transfer" && (
+      {type === "invest" && (
+        <Field label="Into">
+          <div className="flex flex-wrap gap-2">
+            {holdings.map((h) => (
+              <Chip
+                key={h.id}
+                tone="invest"
+                selected={holdingId === h.id}
+                onClick={() => {
+                  setHoldingId(h.id);
+                  if (!name.trim()) setName(`SIP · ${h.name}`.slice(0, 40));
+                }}
+              >
+                <span aria-hidden>{ASSET_CLASSES[h.asset_class].emoji}</span>
+                <span className="max-w-56 truncate">{h.name}</span>
+              </Chip>
+            ))}
+          </div>
+        </Field>
+      )}
+
+      {(type === "income" || type === "expense") && (
         <Field label="Category">
           <div className="flex flex-wrap gap-2">
             {shown.map((c) => (
@@ -334,7 +374,7 @@ function RecurringForm({
         </Field>
       )}
 
-      <Field label={type === "income" ? "Comes into" : type === "transfer" ? "From" : "Paid from"}>
+      <Field label={type === "income" ? "Comes into" : type === "transfer" || type === "invest" ? "From" : "Paid from"}>
         <AccountChips accounts={accounts} value={accountId} onChange={setAccountId} tone={style.chip} />
       </Field>
       {type === "transfer" && (

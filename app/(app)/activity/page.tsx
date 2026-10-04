@@ -12,7 +12,7 @@ import type { TransactionType } from "@/lib/types";
 
 export const metadata = { title: "Activity" };
 
-const TYPES = ["income", "expense", "transfer"];
+const TYPES = ["income", "expense", "transfer", "invest", "redeem"];
 const param = (value: string | string[] | undefined) => (typeof value === "string" ? value : undefined);
 
 export default async function ActivityPage({ searchParams }: PageProps<"/activity">) {

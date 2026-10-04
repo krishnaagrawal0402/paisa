@@ -9,7 +9,14 @@ import type { Account, Category, TransactionType } from "@/lib/types";
  * Rule-based on purpose: instant, free, offline and fully testable.
  */
 
-export type NLContext = { accounts: Account[]; categories: Category[]; rules: CategoryRule[]; today: string };
+export type NLContext = {
+  accounts: Account[];
+  categories: Category[];
+  rules: CategoryRule[];
+  today: string;
+  /** Investments, so "sip 5000 parag parikh" becomes an investment into that fund. */
+  holdings?: { id: string; name: string }[];
+};
 
 export type NLResult = {
   type: TransactionType;
@@ -17,6 +24,7 @@ export type NLResult = {
   categoryId: string | null;
   accountId: string | null;
   toAccountId: string | null;
+  holdingId: string | null;
   date: string | null;
   note: string | null;
 };
@@ -48,6 +56,12 @@ const TRANSFER_WORDS = new Set([
   "withdrawal",
   "atm",
 ]);
+const INVEST_WORDS = new Set(["sip", "invest", "invested", "investment", "investing", "lumpsum", "topup", "bought"]);
+const REDEEM_WORDS = new Set(["redeem", "redeemed", "redemption", "sold", "sell"]);
+// Words too common in fund names to identify one ("Parag Parikh Flexi Cap Fund - Direct Growth").
+const GENERIC_HOLDING_WORDS = new Set(
+  "fund plan direct growth regular option idcw the of india mutual scheme cap index equity and".split(" "),
+);
 const FILLER = new Set([
   "on",
   "for",
@@ -213,6 +227,21 @@ function accountWords(account: Account): string[] {
     .filter((w) => w.length >= 2 && !GENERIC_ACCOUNT_WORDS.has(w));
 }
 
+/** The holding whose distinctive name words appear most in the text. */
+function findHolding(tokens: Token[], holdings: { id: string; name: string }[]): string | null {
+  let best: { id: string; score: number; idx: number[] } | null = null;
+  for (const h of holdings) {
+    const words = h.name
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= 3 && !GENERIC_HOLDING_WORDS.has(w));
+    const idx = tokens.map((t, i) => (!t.used && words.includes(t.low) ? i : -1)).filter((i) => i >= 0);
+    if (idx.length && (!best || idx.length > best.score)) best = { id: h.id, score: idx.length, idx };
+  }
+  best?.idx.forEach((i) => (tokens[i].used = true));
+  return best?.id ?? null;
+}
+
 function findAccounts(tokens: Token[], accounts: Account[]): { id: string; position: number }[] {
   const found: { id: string; position: number }[] = [];
   const claim = (id: string, i: number) => {
@@ -246,13 +275,26 @@ export function parseNatural(input: string, ctx: NLContext): NLResult {
     tokens,
     ctx.accounts.filter((a) => !a.archived),
   );
+  const holdingId = findHolding(tokens, ctx.holdings ?? []);
+  const hasInvestWord = lows.some((w) => INVEST_WORDS.has(w));
+  const hasRedeemWord = lows.some((w) => REDEEM_WORDS.has(w));
 
   const toIndex = lows.indexOf("to");
   const isTransfer =
     lows.some((w) => TRANSFER_WORDS.has(w)) ||
     (accounts.length >= 2 && toIndex > accounts[0].position && toIndex < accounts[1].position);
   const isIncome = !isTransfer && (input.trim().startsWith("+") || lows.some((w) => INCOME_WORDS.has(w)));
-  const type: TransactionType = isTransfer ? "transfer" : isIncome ? "income" : "expense";
+  // An investment needs a holding to go into; "sip" alone without one stays an expense.
+  const isHoldingFlow = holdingId !== null && !isTransfer && (hasInvestWord || hasRedeemWord || !isIncome);
+  const type: TransactionType = isHoldingFlow
+    ? hasRedeemWord
+      ? "redeem"
+      : "invest"
+    : isTransfer
+      ? "transfer"
+      : isIncome
+        ? "income"
+        : "expense";
 
   const accountId = accounts[0]?.id ?? null;
   let toAccountId: string | null = null;
@@ -265,12 +307,18 @@ export function parseNatural(input: string, ctx: NLContext): NLResult {
     }
   }
 
-  const remaining = tokens.filter((t) => !t.used && !FILLER.has(t.low) && !TRANSFER_WORDS.has(t.low));
+  const remaining = tokens.filter(
+    (t) =>
+      !t.used &&
+      !FILLER.has(t.low) &&
+      !TRANSFER_WORDS.has(t.low) &&
+      !(isHoldingFlow && (INVEST_WORDS.has(t.low) || REDEEM_WORDS.has(t.low))),
+  );
   const noteText = remaining.map((t) => t.raw).join(" ");
   const match =
-    type === "transfer"
-      ? null
-      : suggestCategory(noteText, { rules: ctx.rules, categories: ctx.categories, kind: type });
+    type === "income" || type === "expense"
+      ? suggestCategory(noteText, { rules: ctx.rules, categories: ctx.categories, kind: type })
+      : null;
 
   // Drop pure type words from the note ("got", "received"), keep things like "salary".
   const noteWords = remaining.filter((t) => !(INCOME_WORDS.has(t.low) && t.low !== "salary" && t.low !== "refund"));
@@ -282,6 +330,7 @@ export function parseNatural(input: string, ctx: NLContext): NLResult {
     categoryId: match?.categoryId ?? null,
     accountId,
     toAccountId,
+    holdingId: isHoldingFlow ? holdingId : null,
     date,
     note: note ? note.charAt(0).toUpperCase() + note.slice(1) : null,
   };

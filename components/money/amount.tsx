@@ -27,8 +27,9 @@ export function Amount({
 }: AmountProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const reduceMotion = useReducedMotion();
+  // Headline figures are whole rupees; exact paise live in the transaction lists.
   const format = (value: number) =>
-    compact ? formatCompactINR(Math.round(value), { sign }) : formatINR(Math.round(value), { sign });
+    compact ? formatCompactINR(Math.round(value), { sign }) : formatINR(Math.round(value / 100) * 100, { sign });
 
   useEffect(() => {
     const node = ref.current;

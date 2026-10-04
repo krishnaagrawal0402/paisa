@@ -36,7 +36,7 @@ export const getRecurringRules = cache(async (): Promise<RecurringRule[]> => {
   const { data, error } = await supabase
     .from("recurring_rules")
     .select(
-      "id, name, type, amount, account_id, to_account_id, category_id, frequency, anchor_date, next_due, end_date, mode, active",
+      "id, name, type, amount, account_id, to_account_id, category_id, holding_id, frequency, anchor_date, next_due, end_date, mode, active",
     )
     .order("next_due");
   if (error) throw error;
@@ -103,7 +103,9 @@ export async function getTransactions(filters: TransactionFilters): Promise<Tran
   const supabase = await createClient();
   let query = supabase
     .from("transactions")
-    .select("id, type, amount, occurred_on, account_id, to_account_id, category_id, note, recurring_id, created_at")
+    .select(
+      "id, type, amount, occurred_on, account_id, to_account_id, category_id, note, recurring_id, holding_id, created_at",
+    )
     .gte("occurred_on", filters.from)
     .lte("occurred_on", filters.to)
     .order("occurred_on", { ascending: false })
@@ -128,17 +130,27 @@ export async function getTransactions(filters: TransactionFilters): Promise<Tran
   return (data ?? []).map((t) => ({ ...t, amount: Number(t.amount) }));
 }
 
-export type MonthTotals = { income: number; spent: number; saved: number; savingsRate: number | null };
+export type MonthTotals = {
+  income: number;
+  spent: number;
+  saved: number;
+  /** Put into investments this month, net of redemptions. Part of "saved", not spending. */
+  invested: number;
+  savingsRate: number | null;
+};
 
 export function totalsOf(transactions: Transaction[]): MonthTotals {
   let income = 0;
   let spent = 0;
+  let invested = 0;
   for (const t of transactions) {
     if (t.type === "income") income += t.amount;
     else if (t.type === "expense") spent += t.amount;
+    else if (t.type === "invest") invested += t.amount;
+    else if (t.type === "redeem") invested -= t.amount;
   }
   const saved = income - spent;
-  return { income, spent, saved, savingsRate: income > 0 ? saved / income : null };
+  return { income, spent, saved, invested, savingsRate: income > 0 ? saved / income : null };
 }
 
 export type CashflowMonth = { key: string; label: string; income: number; spent: number };

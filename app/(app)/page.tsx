@@ -24,20 +24,24 @@ import {
 import { safeToSpend } from "@/lib/finance/safe-to-spend";
 import { daysLeft as daysLeftIn } from "@/lib/month";
 import { occurrencesUntil } from "@/lib/recurring";
+import { formatCompactINR } from "@/lib/money";
+import { getWealth } from "@/lib/wealth";
 
 export default async function PulsePage() {
-  const [profile, month, accounts, categories, cashflow, rules] = await Promise.all([
+  const [profile, month, accounts, categories, cashflow, rules, wealth] = await Promise.all([
     getProfile(),
     getCurrentMonth(),
     getAccounts({ includeArchived: true }),
     getCategories({ includeArchived: true }),
     getCashflow(6),
     getRecurringRules(),
+    getWealth({ withHistory: false }),
   ]);
   const today = getToday();
   const transactions = await getTransactions({ from: month.start, to: month.end });
   const totals = totalsOf(transactions);
-  const netWorth = accounts.reduce((sum, a) => sum + a.balance, 0);
+  // Bank + cash + investments − cards − loans.
+  const netWorth = wealth.totals.net;
   const activeAccounts = accounts.filter((a) => !a.archived).length;
   const hasAccounts = activeAccounts > 0;
   const savingsRate = totals.savingsRate === null ? null : Math.round(totals.savingsRate * 100);
@@ -79,9 +83,22 @@ export default async function PulsePage() {
         <p className="text-muted mt-2 text-sm">
           {hasAccounts ? (
             <>
-              Across {activeAccounts} {activeAccounts === 1 ? "account" : "accounts"}.{" "}
+              <span className="money">{formatCompactINR(wealth.totals.cash)}</span> cash
+              {wealth.totals.investments > 0 && (
+                <>
+                  {" · "}
+                  <span className="money">{formatCompactINR(wealth.totals.investments)}</span> invested
+                </>
+              )}
+              {wealth.totals.cardsDue + wealth.totals.loans > 0 && (
+                <>
+                  {" · "}
+                  <span className="money">{formatCompactINR(wealth.totals.cardsDue + wealth.totals.loans)}</span> owed
+                </>
+              )}
+              {" · "}
               <Link href="/wealth" className="text-save underline-offset-4 hover:underline">
-                See all
+                Details
               </Link>
             </>
           ) : (
@@ -97,8 +114,8 @@ export default async function PulsePage() {
           label="Invested"
           icon={<TrendingUp className="size-4" />}
           tone="text-invest"
-          paise={0}
-          hint="Coming soon"
+          paise={totals.invested}
+          hint={wealth.totals.investments > 0 ? `${formatCompactINR(wealth.totals.investments)} in total` : undefined}
         />
         <Stat
           label="Saved"

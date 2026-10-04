@@ -27,7 +27,7 @@ export type Category = {
   sort: number;
 };
 
-export type TransactionType = "income" | "expense" | "transfer";
+export type TransactionType = "income" | "expense" | "transfer" | "invest" | "redeem";
 
 export type Transaction = {
   id: string;
@@ -39,6 +39,7 @@ export type Transaction = {
   category_id: string | null;
   note: string | null;
   recurring_id: string | null;
+  holding_id: string | null;
   created_at: string;
 };
 
@@ -47,11 +48,12 @@ export type RecurringFrequency = "weekly" | "monthly" | "yearly";
 export type RecurringRule = {
   id: string;
   name: string;
-  type: TransactionType;
+  type: Exclude<TransactionType, "redeem">;
   amount: Paise;
   account_id: string;
   to_account_id: string | null;
   category_id: string | null;
+  holding_id: string | null;
   frequency: RecurringFrequency;
   anchor_date: string;
   next_due: string;

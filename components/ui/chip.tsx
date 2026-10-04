@@ -1,11 +1,14 @@
 import { cn } from "@/lib/cn";
 
-type ChipProps = React.ComponentProps<"button"> & { selected?: boolean; tone?: "income" | "expense" | "save" };
+export type ChipTone = "income" | "expense" | "save" | "invest";
 
-const SELECTED = {
+type ChipProps = React.ComponentProps<"button"> & { selected?: boolean; tone?: ChipTone };
+
+const SELECTED: Record<ChipTone, string> = {
   income: "border-income/60 bg-income/15 text-fg",
   expense: "border-expense/60 bg-expense/15 text-fg",
   save: "border-save/60 bg-save/15 text-fg",
+  invest: "border-invest/60 bg-invest/15 text-fg",
 };
 
 /** Pill-shaped toggle used for categories, accounts and dates. */

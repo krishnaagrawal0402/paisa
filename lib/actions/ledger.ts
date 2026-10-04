@@ -13,7 +13,8 @@ const paise = z.number().int().positive("Enter an amount above zero").max(1e14, 
 const transactionSchema = z
   .object({
     id: id.optional(),
-    type: z.enum(["income", "expense", "transfer"]),
+    type: z.enum(["income", "expense", "transfer", "invest", "redeem"]),
+    holding_id: id.nullish(),
     amount: paise,
     occurred_on: date,
     account_id: z.uuid("Pick an account"),
@@ -22,12 +23,19 @@ const transactionSchema = z
     note: z.string().trim().max(200).nullish(),
     source: z.enum(["manual", "nl"]).default("manual"),
   })
-  .transform((t) => ({
-    ...t,
-    to_account_id: t.type === "transfer" ? (t.to_account_id ?? null) : null,
-    category_id: t.type === "transfer" ? null : (t.category_id ?? null),
-    note: t.note || null,
-  }))
+  .transform((t) => {
+    const holding = t.type === "invest" || t.type === "redeem";
+    return {
+      ...t,
+      to_account_id: t.type === "transfer" ? (t.to_account_id ?? null) : null,
+      category_id: t.type === "transfer" || holding ? null : (t.category_id ?? null),
+      holding_id: holding ? (t.holding_id ?? null) : null,
+      note: t.note || null,
+    };
+  })
+  .refine((t) => !(t.type === "invest" || t.type === "redeem") || t.holding_id, {
+    message: "Pick the investment",
+  })
   .refine((t) => t.type !== "transfer" || (t.to_account_id && t.to_account_id !== t.account_id), {
     message: "Pick two different accounts for a transfer",
   });
@@ -35,7 +43,7 @@ const transactionSchema = z
 export type TransactionInput = z.input<typeof transactionSchema>;
 
 const TRANSACTION_COLUMNS =
-  "id, type, amount, occurred_on, account_id, to_account_id, category_id, note, recurring_id, created_at";
+  "id, type, amount, occurred_on, account_id, to_account_id, category_id, note, recurring_id, holding_id, created_at";
 
 export async function saveTransaction(input: TransactionInput): Promise<ActionResult<Transaction>> {
   return run(async (supabase) => {

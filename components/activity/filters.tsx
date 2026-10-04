@@ -57,6 +57,8 @@ export function ActivityFilters({ accounts, categories }: { accounts: Account[];
           <option value="expense">Expenses</option>
           <option value="income">Income</option>
           <option value="transfer">Transfers</option>
+          <option value="invest">Investments</option>
+          <option value="redeem">Redemptions</option>
         </select>
         <select
           aria-label="Account"

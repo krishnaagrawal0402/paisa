@@ -1,14 +1,19 @@
 import { Accounts } from "@/components/accounts/accounts";
 import { Amount } from "@/components/money/amount";
 import { Card, CardLabel } from "@/components/ui/card";
-import { getAccounts } from "@/lib/data";
+import { Allocation } from "@/components/wealth/allocation";
+import { Investments } from "@/components/wealth/investments";
+import { Loans } from "@/components/wealth/loans";
+import { NetWorthChart } from "@/components/wealth/net-worth-chart";
+import { getWealth } from "@/lib/wealth";
 
 export const metadata = { title: "Wealth" };
 
 export default async function WealthPage() {
-  const accounts = await getAccounts({ includeArchived: true });
-  const assets = accounts.reduce((sum, a) => sum + Math.max(0, a.balance), 0);
-  const liabilities = accounts.reduce((sum, a) => sum + Math.max(0, -a.balance), 0);
+  const wealth = await getWealth();
+  const { totals } = wealth;
+  const activeAccounts = wealth.accounts.filter((a) => !a.archived);
+  const hasAnything = wealth.accounts.length > 0 || wealth.holdings.length > 0 || wealth.loans.length > 0;
 
   return (
     <div className="space-y-6">
@@ -17,33 +22,45 @@ export default async function WealthPage() {
       <Card className="relative overflow-hidden p-6 md:p-8">
         <div aria-hidden className="bg-invest/15 absolute -top-24 -right-16 size-64 rounded-full blur-3xl" />
         <CardLabel>Net worth</CardLabel>
-        <p className="glow-income mt-2 text-4xl font-semibold tracking-tight md:text-5xl">
-          <Amount paise={assets - liabilities} />
+        <p className="glow-income mt-2 text-5xl font-semibold tracking-tight md:text-6xl">
+          <Amount paise={totals.net} />
         </p>
-        <div className="text-muted mt-3 flex gap-6 text-sm">
+        <div className="text-muted mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
           <span>
-            Assets{" "}
-            <span className="text-income font-medium tabular-nums">
-              <Amount paise={assets} compact animated={false} />
+            Cash{" "}
+            <span className="text-fg font-medium">
+              <Amount paise={totals.cash} compact animated={false} />
+            </span>
+          </span>
+          <span>
+            Investments{" "}
+            <span className="text-invest font-medium">
+              <Amount paise={totals.investments} compact animated={false} />
             </span>
           </span>
           <span>
             Owed{" "}
-            <span className="text-expense font-medium tabular-nums">
-              <Amount paise={liabilities} compact animated={false} />
+            <span className="text-expense font-medium">
+              <Amount paise={totals.cardsDue + totals.loans} compact animated={false} />
             </span>
           </span>
         </div>
       </Card>
 
-      <Accounts accounts={accounts} />
+      {hasAnything && (
+        <div className="grid gap-5 lg:grid-cols-5">
+          <div className="lg:col-span-3">
+            <NetWorthChart points={wealth.history} />
+          </div>
+          <div className="lg:col-span-2">
+            <Allocation wealth={wealth} />
+          </div>
+        </div>
+      )}
 
-      <Card>
-        <p className="text-save text-xs font-medium tracking-[0.08em] uppercase">Coming in M5</p>
-        <p className="text-muted mt-2 text-sm">
-          Investments (mutual funds priced daily, FDs, PPF, stocks), loans and EMIs, and a net-worth trend over time.
-        </p>
-      </Card>
+      <Investments holdings={wealth.holdings} accounts={activeAccounts} />
+      <Loans loans={wealth.loans} accounts={activeAccounts} />
+      <Accounts accounts={wealth.accounts} />
     </div>
   );
 }

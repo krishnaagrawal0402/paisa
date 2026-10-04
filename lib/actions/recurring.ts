@@ -13,7 +13,8 @@ const ruleSchema = z
   .object({
     id: id.optional(),
     name: z.string().trim().min(1, "Give it a name, like Rent or Netflix").max(40),
-    type: z.enum(["income", "expense", "transfer"]),
+    type: z.enum(["income", "expense", "transfer", "invest"]),
+    holding_id: id.nullish(),
     amount: z.number().int().positive("Enter an amount above zero").max(1e14),
     account_id: z.uuid("Pick an account"),
     to_account_id: id.nullish(),
@@ -26,12 +27,14 @@ const ruleSchema = z
   .transform((r) => ({
     ...r,
     to_account_id: r.type === "transfer" ? (r.to_account_id ?? null) : null,
-    category_id: r.type === "transfer" ? null : (r.category_id ?? null),
+    category_id: r.type === "transfer" || r.type === "invest" ? null : (r.category_id ?? null),
+    holding_id: r.type === "invest" ? (r.holding_id ?? null) : null,
     end_date: r.end_date || null,
   }))
   .refine((r) => r.type !== "transfer" || (r.to_account_id && r.to_account_id !== r.account_id), {
     message: "Pick two different accounts for a transfer",
   })
+  .refine((r) => r.type !== "invest" || r.holding_id, { message: "Pick the fund or investment" })
   .refine((r) => !r.end_date || r.end_date >= r.anchor_date, { message: "The end date is before the first date" });
 
 export type RecurringInput = z.input<typeof ruleSchema>;

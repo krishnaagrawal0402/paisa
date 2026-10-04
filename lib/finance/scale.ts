@@ -10,3 +10,17 @@ export function niceTicks(max: number, count = 4): number[] {
   const steps = Math.ceil(max / step - 1e-9);
   return Array.from({ length: steps + 1 }, (_, i) => i * step);
 }
+
+/** Ticks covering [min, max] (which may dip below zero) in clean steps. */
+export function domainTicks(min: number, max: number): number[] {
+  // Always include zero, so the area is drawn from a meaningful baseline.
+  const lo = Math.min(0, min);
+  const hi = Math.max(0, max);
+  const span = Math.max(hi - lo, 1);
+  const step = niceTicks(span, 4)[1] ?? span;
+  const start = Math.floor(lo / step) * step;
+  const end = Math.ceil(hi / step) * step;
+  const ticks: number[] = [];
+  for (let v = start; v <= end + step / 1e6; v += step) ticks.push(Math.round(v));
+  return ticks;
+}

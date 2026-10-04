@@ -48,6 +48,7 @@ describe("parseNatural", () => {
       categoryId: "food",
       accountId: null,
       toAccountId: null,
+      holdingId: null,
       date: null,
       note: "Swiggy dinner",
     });
@@ -138,6 +139,28 @@ describe("parseNatural", () => {
   it("learned rules win over the built-in list", () => {
     const withRule = { ...ctx, rules: [{ pattern: "swiggy", category_id: "rent" }] };
     expect(parseNatural("swiggy 300", withRule).categoryId).toBe("rent");
+  });
+
+  it("investments: sip into a matching fund, sold from one", () => {
+    const withHoldings = {
+      ...ctx,
+      holdings: [
+        { id: "ppfas", name: "Parag Parikh Flexi Cap Fund - Direct Growth" },
+        { id: "ppf", name: "PPF" },
+        { id: "nifty", name: "UTI Nifty 50 Index Fund" },
+      ],
+    };
+    expect(parseNatural("sip 5000 parag parikh hdfc", withHoldings)).toMatchObject({
+      type: "invest",
+      amount: 500000,
+      holdingId: "ppfas",
+      accountId: "hdfc",
+      categoryId: null,
+    });
+    expect(parseNatural("invested 10k in ppf", withHoldings)).toMatchObject({ type: "invest", holdingId: "ppf" });
+    expect(parseNatural("sold 20k nifty", withHoldings)).toMatchObject({ type: "redeem", holdingId: "nifty" });
+    // "sip" with no matching holding stays a normal expense.
+    expect(parseNatural("sip 500 coffee", withHoldings)).toMatchObject({ type: "expense", holdingId: null });
   });
 
   it("copes with nothing useful", () => {

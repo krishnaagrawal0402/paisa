@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, Repeat } from "lucide-react";
+import { ArrowLeftRight, Repeat, TrendingUp } from "lucide-react";
 import { useQuickAdd } from "@/components/quick-add/quick-add";
 import { cn } from "@/lib/cn";
 import { formatINR } from "@/lib/money";
@@ -50,16 +50,24 @@ export function TransactionList({
 }
 
 export function TransactionRow({ transaction: t, accounts, categories }: Lookups & { transaction: Transaction }) {
-  const { openEdit } = useQuickAdd();
+  const { openEdit, holdings } = useQuickAdd();
   const category = categories.find((c) => c.id === t.category_id);
   const account = accounts.find((a) => a.id === t.account_id);
   const toAccount = accounts.find((a) => a.id === t.to_account_id);
 
   const isTransfer = t.type === "transfer";
-  const title = t.note || (isTransfer ? "Transfer" : (category?.name ?? "Uncategorised"));
+  const isHoldingFlow = t.type === "invest" || t.type === "redeem";
+  const holding = holdings.find((h) => h.id === t.holding_id);
+  const title =
+    t.note ||
+    (isTransfer ? "Transfer" : isHoldingFlow ? (holding?.name ?? "Investment") : (category?.name ?? "Uncategorised"));
   const subtitle = isTransfer
     ? `${account?.name ?? "?"} → ${toAccount?.name ?? "?"}`
-    : [t.note ? category?.name : null, account?.name].filter(Boolean).join(" · ");
+    : isHoldingFlow
+      ? t.type === "invest"
+        ? `${account?.name ?? "?"} → ${t.note ? (holding?.name ?? "investment") : "invested"}`
+        : `${t.note ? (holding?.name ?? "investment") : "Redeemed"} → ${account?.name ?? "?"}`
+      : [t.note ? category?.name : null, account?.name].filter(Boolean).join(" · ");
 
   return (
     <li>
@@ -69,7 +77,13 @@ export function TransactionRow({ transaction: t, accounts, categories }: Lookups
         className="hover:bg-glass-hover flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
       >
         <span className="bg-glass-hover grid size-10 shrink-0 place-items-center rounded-full text-lg">
-          {isTransfer ? <ArrowLeftRight className="text-save size-4" /> : (category?.emoji ?? "❔")}
+          {isTransfer ? (
+            <ArrowLeftRight className="text-save size-4" />
+          ) : isHoldingFlow ? (
+            <TrendingUp className="text-invest size-4" />
+          ) : (
+            (category?.emoji ?? "❔")
+          )}
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5 truncate text-sm font-medium">
@@ -84,6 +98,7 @@ export function TransactionRow({ transaction: t, accounts, categories }: Lookups
             t.type === "income" && "text-income",
             t.type === "expense" && "text-fg",
             isTransfer && "text-muted",
+            isHoldingFlow && "text-invest",
           )}
         >
           {t.type === "income" ? "+" : t.type === "expense" ? "−" : ""}

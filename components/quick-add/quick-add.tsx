@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Chip, Segmented } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { AccountChips, Field } from "@/components/ui/form-fields";
+import type { ChipTone } from "@/components/ui/chip";
+import { ASSET_CLASSES, type AssetClass } from "@/lib/finance/holdings";
 import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { appConfig } from "@/config/app";
@@ -22,6 +24,8 @@ import type { Account, Category, Transaction, TransactionType } from "@/lib/type
 type QuickAddApi = {
   openNew: (type?: TransactionType) => void;
   openEdit: (transaction: Transaction) => void;
+  /** Investments, for showing names on invest/redeem rows. */
+  holdings: HoldingOption[];
 };
 
 const QuickAddContext = createContext<QuickAddApi | null>(null);
@@ -32,7 +36,10 @@ export function useQuickAdd() {
   return api;
 }
 
-const TYPES: TransactionType[] = ["expense", "income", "transfer"];
+const TYPES: TransactionType[] = ["expense", "income", "transfer", "invest"];
+
+/** What the sheet needs to know about an investment. */
+export type HoldingOption = { id: string; name: string; asset_class: AssetClass };
 const LAST_ACCOUNT_KEY = "paisa:last-account";
 
 function readLastAccount(): string | null {
@@ -58,11 +65,13 @@ export function QuickAddProvider({
   accounts,
   categories,
   rules,
+  holdings,
   children,
 }: {
   accounts: Account[];
   categories: Category[];
   rules: CategoryRule[];
+  holdings: HoldingOption[];
   children: React.ReactNode;
 }) {
   const [state, setState] = useState<SheetState>({ open: false, type: "expense", editing: null, key: 0 });
@@ -90,7 +99,7 @@ export function QuickAddProvider({
     openNew(TYPES.includes(add as TransactionType) ? (add as TransactionType) : "expense");
   }, [openNew]);
 
-  const api = useMemo(() => ({ openNew, openEdit }), [openNew, openEdit]);
+  const api = useMemo(() => ({ openNew, openEdit, holdings }), [openNew, openEdit, holdings]);
 
   return (
     <QuickAddContext.Provider value={api}>
@@ -101,6 +110,7 @@ export function QuickAddProvider({
           accounts={accounts}
           categories={categories}
           rules={rules}
+          holdings={holdings}
           editing={state.editing}
           initialType={state.type}
           onDone={close}
@@ -110,13 +120,12 @@ export function QuickAddProvider({
   );
 }
 
-const TYPE_STYLE: Record<
-  TransactionType,
-  { label: string; active: string; amount: string; chip: "income" | "expense" | "save" }
-> = {
+const TYPE_STYLE: Record<TransactionType, { label: string; active: string; amount: string; chip: ChipTone }> = {
   expense: { label: "Expense", active: "bg-expense text-bg", amount: "text-expense", chip: "expense" },
   income: { label: "Income", active: "bg-income text-bg", amount: "text-income", chip: "income" },
   transfer: { label: "Transfer", active: "bg-save text-bg", amount: "text-save", chip: "save" },
+  invest: { label: "Invest", active: "bg-invest text-bg", amount: "text-invest", chip: "invest" },
+  redeem: { label: "Redeem", active: "bg-invest text-bg", amount: "text-invest", chip: "invest" },
 };
 
 const VISIBLE_CATEGORIES = 8;
@@ -125,6 +134,7 @@ function TransactionForm({
   accounts,
   categories,
   rules,
+  holdings,
   editing,
   initialType,
   onDone,
@@ -132,6 +142,7 @@ function TransactionForm({
   accounts: Account[];
   categories: Category[];
   rules: CategoryRule[];
+  holdings: HoldingOption[];
   editing: Transaction | null;
   initialType: TransactionType;
   onDone: () => void;
@@ -149,6 +160,9 @@ function TransactionForm({
     return accounts.find((a) => a.id === last)?.id ?? accounts[0]?.id ?? null;
   });
   const [toAccountId, setToAccountId] = useState<string | null>(editing?.to_account_id ?? null);
+  const [holdingId, setHoldingId] = useState<string | null>(
+    editing?.holding_id ?? (holdings.length === 1 ? holdings[0].id : null),
+  );
   const [date, setDate] = useState(editing?.occurred_on ?? today);
   const [note, setNote] = useState(editing?.note ?? "");
   const [typed, setTyped] = useState("");
@@ -158,6 +172,9 @@ function TransactionForm({
   const [pending, startTransition] = useTransition();
 
   const style = TYPE_STYLE[type];
+  const isHoldingFlow = type === "invest" || type === "redeem";
+  // Invest appears once there's something to invest in; an existing redemption keeps its own tab.
+  const types = TYPES.filter((t) => t !== "invest" || holdings.length > 0).concat(type === "redeem" ? ["redeem"] : []);
   // Transfer destination: what was picked, or the only other account if there's just one.
   const otherAccounts = accounts.filter((a) => a.id !== accountId);
   const destination =
@@ -190,8 +207,9 @@ function TransactionForm({
   function applyTyped(text: string) {
     setTyped(text);
     if (!text.trim()) return;
-    const parsed = parseNatural(text, { accounts, categories, rules, today });
+    const parsed = parseNatural(text, { accounts, categories, rules, today, holdings });
     setType(parsed.type);
+    if (parsed.holdingId) setHoldingId(parsed.holdingId);
     setAmountText(parsed.amount ? String(parsed.amount / 100) : "");
     setCategoryId(parsed.categoryId);
     if (parsed.accountId) setAccountId(parsed.accountId);
@@ -214,6 +232,7 @@ function TransactionForm({
     if (type === "transfer" && !destination) {
       return setError("Pick a different account to move the money to");
     }
+    if (isHoldingFlow && !holdingId) return setError("Pick the investment");
     setError(null);
 
     startTransition(async () => {
@@ -225,6 +244,7 @@ function TransactionForm({
         account_id: accountId,
         to_account_id: destination,
         category_id: categoryId,
+        holding_id: holdingId,
         note,
         source: typed.trim() ? "nl" : "manual",
       });
@@ -236,8 +256,11 @@ function TransactionForm({
 
       if (editing) return toast.show({ message: "Saved" });
       const category = categories.find((c) => c.id === categoryId);
+      const holding = holdings.find((h) => h.id === holdingId);
       toast.show({
-        message: `Added ${formatINR(amount)}${category ? ` · ${category.name}` : ""}`,
+        message: isHoldingFlow
+          ? `${type === "invest" ? "Invested" : "Redeemed"} ${formatINR(amount)} · ${holding?.name ?? ""}`
+          : `Added ${formatINR(amount)}${category ? ` · ${category.name}` : ""}`,
         action: {
           label: "Undo",
           onClick: async () => {
@@ -288,7 +311,7 @@ function TransactionForm({
       <Segmented
         value={type}
         onChange={changeType}
-        options={TYPES.map((t) => ({ value: t, label: TYPE_STYLE[t].label, activeClass: TYPE_STYLE[t].active }))}
+        options={types.map((t) => ({ value: t, label: TYPE_STYLE[t].label, activeClass: TYPE_STYLE[t].active }))}
       />
 
       <div className="text-center">
@@ -314,7 +337,20 @@ function TransactionForm({
         </p>
       </div>
 
-      {type !== "transfer" && (
+      {isHoldingFlow && (
+        <Field label={type === "invest" ? "Into" : "From"}>
+          <div className="flex flex-wrap gap-2">
+            {holdings.map((h) => (
+              <Chip key={h.id} tone="invest" selected={holdingId === h.id} onClick={() => setHoldingId(h.id)}>
+                <span aria-hidden>{ASSET_CLASSES[h.asset_class].emoji}</span>
+                <span className="max-w-56 truncate">{h.name}</span>
+              </Chip>
+            ))}
+          </div>
+        </Field>
+      )}
+
+      {(type === "income" || type === "expense") && (
         <Field label="Category">
           <div className="flex flex-wrap gap-2">
             {shownCategories.map((c) => (
@@ -341,7 +377,15 @@ function TransactionForm({
         </Field>
       )}
 
-      <Field label={type === "income" ? "Received in" : type === "transfer" ? "From" : "Paid from"}>
+      <Field
+        label={
+          type === "income" || type === "redeem"
+            ? "Received in"
+            : type === "transfer" || type === "invest"
+              ? "From"
+              : "Paid from"
+        }
+      >
         <AccountChips accounts={accounts} value={accountId} onChange={setAccountId} tone={style.chip} />
       </Field>
 

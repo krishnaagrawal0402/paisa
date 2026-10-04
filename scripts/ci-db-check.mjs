@@ -78,6 +78,35 @@ try {
     check("recurring: catches up missed months once, then posts nothing more", first === 2 && second === 0);
     check("recurring: next_due moves past today", iso(next_due) > iso(today));
 
+    // ── investments ──
+    const [fund] = await tx`
+      insert into public.holdings (user_id, name, asset_class, scheme_code) values (${user.id}, 'Index fund', 'mutual_fund', 120716)
+      returning id`;
+    const bankBefore = Number(
+      (await tx`select balance from public.account_balances where account_id = ${bank.id}`)[0].balance,
+    );
+    await tx`
+      insert into public.transactions (user_id, type, amount, occurred_on, account_id, holding_id)
+      values (${user.id}, 'invest', 1000000, current_date, ${bank.id}, ${fund.id})`;
+    const bankAfter = Number(
+      (await tx`select balance from public.account_balances where account_id = ${bank.id}`)[0].balance,
+    );
+    check("investing moves money out of the account (not counted as spending)", bankBefore - bankAfter === 1000000);
+    const [{ blockedCategory }] = await tx`
+      select exists (
+        select 1 from pg_constraint where conname = 'transactions_holding_check'
+      ) as "blockedCategory"`;
+    check("invest/redeem rows must name a holding and can't carry a category", blockedCategory);
+    const history = await tx`
+      select on_date, balance from public.account_balances_at(array[current_date - 1, current_date]::date[])
+      where account_id = ${bank.id} order by on_date`;
+    // Today's entries on Bank: +1,000 income, −300 expense, −200 transfer out, −10,000 invest (paise below).
+    check(
+      "account_balances_at: today matches the live balance, yesterday excludes today's entries",
+      Number(history[1].balance) === bankAfter &&
+        Number(history[0].balance) - Number(history[1].balance) === -100000 + 30000 + 20000 + 1000000,
+    );
+
     // A second user, to prove one user can't touch another's data.
     await tx`delete from private.allowed_emails`;
     const [other] =
