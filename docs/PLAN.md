@@ -316,7 +316,9 @@ Not built now, but Phase 1 avoids blocking it:
 
 ## 10. Backlog / ideas (post Phase 1)
 
-- CAMS/KFintech **CAS PDF import** to pull all MF holdings in one go.
+- **CAS PDF import** (NSDL/CDSL) to pull all mutual funds and demat stocks in one go. _Paused 2026-10-05: manual setup is enough for now._ Groundwork is in: `npm run cas:layout` produces a masked layout of a statement to build a parser from (see CONTRIBUTING). Plan when resumed: read the PDF in the browser with pdf.js (password never leaves the device), match funds by ISIN to AMFI scheme codes, update units and values as of the statement date. NSDL first, then CDSL.
+- **Broker holdings file import** (e.g. Kotak Neo, Zerodha holdings export): each stock with quantity, average price and value, reusing the statement-import column mapper. Simpler than CAS for per-stock tracking.
+- **Transaction alert emails** via a Google Apps Script in the user's own Gmail that posts new alerts to the instance (no Google verification, no extra service). One small parser per bank (HDFC, ICICI, Axis first); matched against later statement imports so nothing is counted twice.
 - Offline write queue (add expenses with no network, sync later).
 - Light theme.
 - Bring-your-own-key LLM for NL fallback and a monthly "money coach" summary.
