@@ -112,6 +112,7 @@ export function CashflowChart({ months }: { months: CashflowMonth[] }) {
                     <div
                       key={m.key}
                       tabIndex={0}
+                      role="img"
                       aria-label={`${m.label}: income ${formatINR(m.income)}, spent ${formatINR(m.spent)}`}
                       onPointerEnter={() => setActive(i)}
                       onPointerLeave={() => setActive((a) => (a === i ? null : a))}

@@ -9,15 +9,15 @@ const variants = {
 
 type ButtonProps = React.ComponentProps<"button"> & { variant?: keyof typeof variants };
 
-export function Button({ variant = "primary", className, ...props }: ButtonProps) {
-  return (
-    <button
-      className={cn(
-        "inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-sm transition-all active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50",
-        variants[variant],
-        className,
-      )}
-      {...props}
-    />
+/** Button looks for links (a <button> inside an <a> is invalid HTML). */
+export function buttonClass(variant: keyof typeof variants = "primary", className?: string) {
+  return cn(
+    "inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-sm transition-all active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50",
+    variants[variant],
+    className,
   );
+}
+
+export function Button({ variant = "primary", className, ...props }: ButtonProps) {
+  return <button className={buttonClass(variant, className)} {...props} />;
 }

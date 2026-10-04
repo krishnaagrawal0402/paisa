@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ordinal } from "@/lib/month";
 import { updateProfile } from "./actions";
 
 export function ProfileForm({
@@ -70,10 +71,4 @@ export function ProfileForm({
       </div>
     </form>
   );
-}
-
-function ordinal(n: number) {
-  const suffix =
-    n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th";
-  return `${n}${suffix}`;
 }

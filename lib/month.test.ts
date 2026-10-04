@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { addDays, daysLeft, financialMonthFor, financialMonthFromKey, shiftMonthKey, todayIn } from "./month";
+import {
+  addDays,
+  daysLeft,
+  financialMonthFor,
+  financialMonthFromKey,
+  nextDayOfMonth,
+  ordinal,
+  shiftMonthKey,
+  todayIn,
+} from "./month";
 
 describe("financialMonthFor", () => {
   it("uses calendar months when payday is the 1st", () => {
@@ -55,5 +64,28 @@ describe("helpers", () => {
     const oct = financialMonthFromKey("2026-10", 1);
     expect(daysLeft(oct, "2026-10-31")).toBe(1);
     expect(daysLeft(oct, "2026-10-04")).toBe(28);
+  });
+});
+
+describe("nextDayOfMonth and ordinal", () => {
+  it("finds the next payday, rolling into next month and year", () => {
+    expect(nextDayOfMonth("2026-10-04", 4)).toBe("2026-10-04");
+    expect(nextDayOfMonth("2026-10-04", 28)).toBe("2026-10-28");
+    expect(nextDayOfMonth("2026-12-29", 1)).toBe("2027-01-01");
+  });
+
+  it("writes ordinals, including the teens", () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23].map(ordinal)).toEqual([
+      "1st",
+      "2nd",
+      "3rd",
+      "4th",
+      "11th",
+      "12th",
+      "13th",
+      "21st",
+      "22nd",
+      "23rd",
+    ]);
   });
 });

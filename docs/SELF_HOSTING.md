@@ -20,7 +20,7 @@ Your instance = this code + your own Supabase project (free tier is plenty for p
 
 ### On Vercel
 
-1. Fork the repo, then **Add New → Project** in Vercel and import your fork.
+1. Use the **Deploy with Vercel** button in the [README](../README.md#option-a-deploy-about-5-minutes-no-terminal). It copies the repo to your GitHub and asks for the env vars. Or fork the repo yourself, then **Add New → Project** in Vercel and import your fork.
 2. Add the env vars: the three above, plus `ALLOWED_EMAILS` (your email; comma-separate several).
 3. Deploy. The build runs `scripts/db-deploy.mjs` first, which applies every migration and syncs `ALLOWED_EMAILS` into the database. **If the database step fails, the deploy fails**, so code never runs against an old schema.
 4. Optional: set `SITE_URL` to your production URL (for example `https://paisa-you.vercel.app`).
@@ -64,6 +64,21 @@ Recurring rules (salary, rent, SIPs, subscriptions) are posted by the database i
 
 Outside India? Change `timeZone` in `config/app.ts`, and the time zone in the `cron.schedule(...)` call at the end of
 `supabase/migrations/20261004030000_recurring.sql` (add a new migration that re-runs `cron.schedule` with the same job name).
+
+## Keeping your copy up to date
+
+Click **Sync fork** on your fork's GitHub page. Vercel redeploys, and the build applies any new migrations before the new code goes live. If you cloned with the Deploy button instead of forking, pull from this repo: `git pull https://github.com/krishnaagrawal0402/paisa main`.
+
+## Your data
+
+- **Export:** Settings → Your data downloads everything as JSON (amounts in paise), or every transaction as a CSV for spreadsheets.
+- **Delete:** Settings → Delete my account erases all your rows and your login.
+- **Backups:** Supabase's free tier has no automatic backups you can restore yourself, so download an export now and then.
+- **Free-tier pausing:** Supabase pauses free projects after about a week with no activity. Using the app keeps it awake. If it does pause, press **Restore** in the Supabase dashboard; nothing is lost.
+
+## Trying it out
+
+`npm run db:seed-demo -- you@example.com` fills an empty account with six months of sample data (sign in once first). `--wipe` removes it again and brings back the first-run setup.
 
 ## Who can sign in?
 

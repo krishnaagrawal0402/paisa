@@ -23,7 +23,9 @@ export function TransactionList({
   today,
   accounts,
   categories,
-}: Lookups & { transactions: Transaction[]; today: string }) {
+  headingLevel = 2,
+}: Lookups & { transactions: Transaction[]; today: string; headingLevel?: 2 | 3 }) {
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   const days = new Map<string, Transaction[]>();
   for (const t of transactions) days.set(t.occurred_on, [...(days.get(t.occurred_on) ?? []), t]);
 
@@ -34,7 +36,7 @@ export function TransactionList({
         return (
           <section key={date}>
             <div className="text-muted mb-2 flex items-baseline justify-between px-1 text-xs font-medium tracking-[0.06em] uppercase">
-              <h3>{dayLabel(date, today)}</h3>
+              <Heading>{dayLabel(date, today)}</Heading>
               {spent > 0 && <span className="money tabular-nums">−{formatINR(spent)}</span>}
             </div>
             <ul className="glass divide-line divide-y overflow-hidden">

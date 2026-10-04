@@ -1,10 +1,11 @@
-import { ChevronRight, LogOut } from "lucide-react";
+import { ChevronRight, Download, LogOut } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import { Card, CardLabel } from "@/components/ui/card";
 import { getProfile } from "@/lib/data";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { signOut } from "./actions";
+import { DeleteAccount } from "./delete-account";
 import { ProfileForm } from "./profile-form";
 
 export const metadata = { title: "Settings" };
@@ -47,11 +48,29 @@ export default async function SettingsPage() {
         ))}
       </ul>
 
-      <form action={signOut}>
-        <Button variant="glass" className="w-full md:w-auto">
-          <LogOut className="size-4" /> Sign out
-        </Button>
-      </form>
+      <Card>
+        <CardLabel>Your data</CardLabel>
+        <p className="text-muted mt-1 text-sm">
+          It&apos;s yours. Take a full copy anytime, or a spreadsheet of every transaction.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <a href="/api/export" download className={buttonClass("glass", "h-10 px-4")}>
+            <Download className="size-4" /> Everything (JSON)
+          </a>
+          <a href="/api/export?format=csv" download className={buttonClass("glass", "h-10 px-4")}>
+            <Download className="size-4" /> Transactions (CSV)
+          </a>
+        </div>
+      </Card>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <form action={signOut}>
+          <Button variant="glass" className="h-10 px-4">
+            <LogOut className="size-4" /> Sign out
+          </Button>
+        </form>
+        <DeleteAccount />
+      </div>
     </div>
   );
 }

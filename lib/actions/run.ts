@@ -8,11 +8,12 @@ export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; e
 
 export async function run<T>(
   work: (supabase: Awaited<ReturnType<typeof createClient>>) => Promise<T>,
+  { revalidate = true } = {},
 ): Promise<ActionResult<T>> {
   if (!(await getCurrentUser())) return { ok: false, error: "You're signed out. Refresh and sign in again." };
   try {
     const data = await work(await createClient());
-    revalidatePath("/", "layout");
+    if (revalidate) revalidatePath("/", "layout");
     return { ok: true, data };
   } catch (error) {
     return { ok: false, error: friendlyError(error) };

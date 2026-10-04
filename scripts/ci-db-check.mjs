@@ -186,6 +186,25 @@ try {
     check("import: 'balance already includes these' keeps today's balance", afterImport === before);
     check("import: undo removes the lines and restores the balance", undone === 2 && afterUndo === before);
 
+    // ── delete my account ──
+    await tx`set local role authenticated`;
+    await tx`select set_config('request.jwt.claims', ${JSON.stringify({ sub: user.id, role: "authenticated" })}, true)`;
+    await tx`select public.delete_my_account()`;
+    await tx`reset role`;
+    const [leftover] = await tx`
+      select (select count(*) from auth.users where id = ${user.id})::int
+           + (select count(*) from public.profiles where id = ${user.id})::int
+           + (select count(*) from public.accounts where user_id = ${user.id})::int
+           + (select count(*) from public.transactions where user_id = ${user.id})::int
+           + (select count(*) from public.categories where user_id = ${user.id})::int
+           + (select count(*) from public.holdings where user_id = ${user.id})::int
+           + (select count(*) from public.recurring_rules where user_id = ${user.id})::int as n`;
+    const [otherStill] = await tx`select count(*)::int as n from public.accounts where user_id = ${other.id}`;
+    check(
+      "delete_my_account removes every row the user owns, and nobody else's",
+      leftover.n === 0 && otherStill.n === 1,
+    );
+
     throw ROLLBACK;
   });
 } catch (error) {

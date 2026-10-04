@@ -28,7 +28,7 @@ export function Sidebar() {
   const { openNew } = useQuickAdd();
   return (
     <aside className="border-line bg-bg/40 fixed inset-y-0 left-0 hidden w-64 flex-col border-r px-4 py-6 backdrop-blur-xl md:flex">
-      <Link href="/" className="px-2">
+      <Link href="/" aria-label="Pulse, home" className="px-2">
         <Logo />
       </Link>
 
@@ -76,7 +76,7 @@ export function MobileHeader() {
   return (
     <header className="pt-safe border-line bg-bg/60 sticky top-0 z-20 border-b backdrop-blur-xl md:hidden">
       <div className="flex h-14 items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" aria-label="Pulse, home" className="flex items-center gap-2">
           <LogoMark className="size-8" />
         </Link>
         <div className="flex items-center">

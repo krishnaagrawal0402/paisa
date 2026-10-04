@@ -81,7 +81,10 @@ export default async function PulsePage() {
       <header>
         <p className="text-muted text-sm">
           {month.label} ·{" "}
-          <Link href={`/report/${month.key}`} className="text-save underline-offset-4 hover:underline">
+          <Link
+            href={`/report/${month.key}`}
+            className="text-save decoration-save/40 hover:decoration-save underline underline-offset-4"
+          >
             Report card
           </Link>
         </p>
@@ -204,6 +207,7 @@ export default async function PulsePage() {
                 </Link>
               </div>
               <TransactionList
+                headingLevel={3}
                 transactions={transactions.slice(0, 5)}
                 today={today}
                 accounts={accounts}

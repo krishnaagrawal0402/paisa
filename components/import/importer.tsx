@@ -3,7 +3,7 @@
 import { ArrowLeft, Check, FileSpreadsheet, Lock, Undo2, Upload } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import { Card, CardLabel } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { useToast } from "@/components/ui/toast";
@@ -561,8 +561,8 @@ export function Importer({
         </p>
       </div>
       <div className="flex flex-wrap justify-center gap-3">
-        <Link href="/activity">
-          <Button>See them in Activity</Button>
+        <Link href="/activity" className={buttonClass()}>
+          See them in Activity
         </Link>
         {result?.batchId && (
           <Button variant="glass" onClick={undo} disabled={pending}>

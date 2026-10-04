@@ -119,6 +119,7 @@ export function NetWorthChart({ points }: { points: WealthPoint[] }) {
                   <div
                     key={p.date}
                     tabIndex={0}
+                    role="img"
                     aria-label={`${label(p.date, i === points.length - 1)}: net worth ${formatRupees(p.net)}`}
                     onPointerEnter={() => setActive(i)}
                     onPointerLeave={() => setActive((a) => (a === i ? null : a))}

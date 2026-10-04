@@ -64,3 +64,16 @@ export function addDays(date: string, days: number): string {
   const [y, m, d] = date.split("-").map(Number);
   return iso(y, m, d + days);
 }
+
+/** The next date on or after `today` that falls on `day` (1–28) of a month. */
+export function nextDayOfMonth(today: string, day: number): string {
+  const [y, m, d] = today.split("-").map(Number);
+  return d <= day ? iso(y, m, day) : iso(y, m + 1, day);
+}
+
+/** 1 → "1st", 22 → "22nd". */
+export function ordinal(n: number): string {
+  const suffix =
+    n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th";
+  return `${n}${suffix}`;
+}

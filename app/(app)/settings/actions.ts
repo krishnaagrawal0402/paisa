@@ -33,3 +33,17 @@ export async function signOut() {
   await supabase.auth.signOut();
   redirect("/login");
 }
+
+/** Permanently removes the signed-in user and everything they own. */
+export async function deleteMyAccount(_prev: { error?: string }, formData: FormData): Promise<{ error?: string }> {
+  if (!(await getCurrentUser())) redirect("/login");
+  if (String(formData.get("confirm")).trim().toLowerCase() !== "delete") {
+    return { error: "Type delete to confirm." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_my_account");
+  if (error) return { error: error.message };
+  // The login no longer exists; this just clears the session cookies.
+  await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+  redirect("/login");
+}

@@ -4,7 +4,7 @@ import { Amount } from "@/components/money/amount";
 import { Card, CardLabel } from "@/components/ui/card";
 import { cn } from "@/lib/cn";
 import type { SafeToSpend } from "@/lib/finance/safe-to-spend";
-import { formatINR } from "@/lib/money";
+import { formatRupees } from "@/lib/money";
 
 const STATUS = {
   "on-track": { icon: CircleCheck, label: "On track", text: "text-save", fill: "bg-save", track: "bg-save/15" },
@@ -92,20 +92,20 @@ export function SafeToSpendCard({
       <p className="text-muted text-sm">
         {result.remaining >= 0 ? (
           <>
-            <span className="money text-fg font-medium">{formatINR(result.remaining)}</span> left of{" "}
-            <span className="money">{formatINR(result.spendable)}</span>
+            <span className="money text-fg font-medium">{formatRupees(result.remaining)}</span> left of{" "}
+            <span className="money">{formatRupees(result.spendable)}</span>
           </>
         ) : (
           <>
-            <span className="money text-expense font-medium">{formatINR(-result.remaining)}</span> over your{" "}
-            <span className="money">{formatINR(result.spendable)}</span> budget
+            <span className="money text-expense font-medium">{formatRupees(-result.remaining)}</span> over your{" "}
+            <span className="money">{formatRupees(result.spendable)}</span> budget
           </>
         )}{" "}
         after keeping {savingsTargetPct}% aside
         {committed > 0 && (
           <>
             {" "}
-            and <span className="money">{formatINR(committed)}</span> for bills still due
+            and <span className="money">{formatRupees(committed)}</span> for bills still due
           </>
         )}
         .
