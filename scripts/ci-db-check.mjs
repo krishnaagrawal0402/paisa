@@ -121,7 +121,7 @@ try {
     const balanceOf = async () =>
       Number((await tx`select balance from public.account_balances where account_id = ${bank.id}`)[0].balance);
     const before = await balanceOf();
-    const rows = JSON.stringify([
+    const rows = tx.json([
       {
         type: "expense",
         amount: 45000,
@@ -140,8 +140,8 @@ try {
       },
     ]);
     const [{ first: firstImport }] =
-      await tx`select public.import_statement(${bank.id}, 'jan.csv', ${rows}::jsonb, true) as first`;
-    const [{ again }] = await tx`select public.import_statement(${bank.id}, 'jan.csv', ${rows}::jsonb, true) as again`;
+      await tx`select public.import_statement(${bank.id}, 'jan.csv', ${rows}, true) as first`;
+    const [{ again }] = await tx`select public.import_statement(${bank.id}, 'jan.csv', ${rows}, true) as again`;
     const afterImport = await balanceOf();
     const [{ undone }] = await tx`select public.undo_import(${firstImport.batch_id}) as undone`;
     const afterUndo = await balanceOf();
