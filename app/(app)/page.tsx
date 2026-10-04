@@ -32,9 +32,10 @@ import { getPlanData } from "@/lib/plan";
 import { getReport } from "@/lib/report";
 import { shiftMonthKey } from "@/lib/month";
 import { getWealth } from "@/lib/wealth";
+import { getCardBills } from "@/lib/cards";
 
 export default async function PulsePage() {
-  const [profile, month, accounts, categories, cashflow, rules, wealth, plan] = await Promise.all([
+  const [profile, month, accounts, categories, cashflow, rules, wealth, plan, bills] = await Promise.all([
     getProfile(),
     getCurrentMonth(),
     getAccounts({ includeArchived: true }),
@@ -43,6 +44,7 @@ export default async function PulsePage() {
     getRecurringRules(),
     getWealth({ withHistory: false }),
     getPlanData(),
+    getCardBills(),
   ]);
   const today = getToday();
   const [transactions, report, lastReport] = await Promise.all([
@@ -65,10 +67,15 @@ export default async function PulsePage() {
   const committed = activeRules
     .filter((r) => r.type === "expense")
     .reduce((sum, r) => sum + occurrencesUntil(r, month.end).length * r.amount, 0);
+  // Salary (or other recurring income) due this month but not logged yet: budget with it until it arrives.
+  const expectedIncome = activeRules
+    .filter((r) => r.type === "income")
+    .reduce((sum, r) => sum + occurrencesUntil(r, month.end).filter((d) => d >= month.start).length * r.amount, 0);
 
   const daysLeft = daysLeftIn(month, today);
   const budget = safeToSpend({
     income: totals.income,
+    expectedIncome,
     spent: totals.spent,
     committed,
     savingsTargetPct: profile.savingsTargetPct,
@@ -93,7 +100,7 @@ export default async function PulsePage() {
         </h1>
       </header>
 
-      <PendingConfirmations rules={pending} categories={categories} />
+      <PendingConfirmations rules={pending} categories={categories} today={today} />
       {showLastReport && (
         <ReportReady monthKey={lastReport.month.key} monthName={lastReport.month.label.replace(/ \d{4}$/, "")} />
       )}
@@ -176,7 +183,7 @@ export default async function PulsePage() {
                 committed={committed}
               />
             </div>
-            <Upcoming rules={rules} categories={categories} today={today} />
+            <Upcoming rules={rules} categories={categories} today={today} bills={bills} />
           </div>
 
           {/* An early-month score from 1–2 pillars would mislead; wait until income is in. */}

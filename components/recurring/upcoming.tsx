@@ -1,21 +1,24 @@
-import { ArrowLeftRight } from "lucide-react";
+import { ArrowLeftRight, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { Card, CardLabel } from "@/components/ui/card";
 import { cn } from "@/lib/cn";
 import { formatINR } from "@/lib/money";
 import { addDays } from "@/lib/month";
 import { formatDue, occurrencesUntil } from "@/lib/recurring";
+import type { CardBillWithName } from "@/lib/cards";
 import type { Category, RecurringRule } from "@/lib/types";
 
-/** What's coming in the next 7 days from recurring rules. */
+/** What's coming in the next 7 days: recurring rules, plus card bills due (or overdue). */
 export function Upcoming({
   rules,
   categories,
   today,
+  bills = [],
 }: {
   rules: RecurringRule[];
   categories: Category[];
   today: string;
+  bills?: CardBillWithName[];
 }) {
   const until = addDays(today, 7);
   const items = rules
@@ -27,6 +30,7 @@ export function Upcoming({
         .map((date) => ({ rule, date })),
     )
     .sort((a, b) => a.date.localeCompare(b.date));
+  const dueBills = bills.filter((b) => (b.status === "due" && b.dueDate <= until) || b.status === "overdue");
 
   return (
     <Card>
@@ -36,10 +40,26 @@ export function Upcoming({
           Recurring
         </Link>
       </div>
-      {items.length === 0 ? (
+      {items.length === 0 && dueBills.length === 0 ? (
         <p className="text-muted mt-3 text-sm">Nothing scheduled this week.</p>
       ) : (
         <ul className="mt-2 space-y-0.5">
+          {dueBills.map((bill) => (
+            <li key={bill.accountId} className="flex items-center gap-3 py-2">
+              <span className={cn("w-14 shrink-0 text-xs", bill.status === "overdue" ? "text-expense" : "text-muted")}>
+                {bill.status === "overdue"
+                  ? "Overdue"
+                  : bill.dueDate === today
+                    ? "Today"
+                    : bill.dueDate === addDays(today, 1)
+                      ? "Tomorrow"
+                      : formatDue(bill.dueDate)}
+              </span>
+              <CreditCard aria-hidden className="text-muted mx-0.5 size-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate text-sm">{bill.name} bill</span>
+              <span className="money shrink-0 text-sm font-medium tabular-nums">{formatINR(bill.due)}</span>
+            </li>
+          ))}
           {items.map(({ rule, date }) => {
             const category = categories.find((c) => c.id === rule.category_id);
             return (

@@ -110,6 +110,12 @@ export function SafeToSpendCard({
         )}
         .
       </p>
+      {result.expected > 0 && (
+        <p className="text-subtle text-xs">
+          Includes <span className="money">{formatRupees(result.expected)}</span> of income you&apos;re expecting this
+          month. Confirm it when it arrives.
+        </p>
+      )}
     </Card>
   );
 }

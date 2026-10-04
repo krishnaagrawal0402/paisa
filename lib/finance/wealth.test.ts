@@ -122,6 +122,7 @@ describe("positionAt", () => {
     fd_start: null,
     fd_maturity: null,
     fd_compounding: null,
+    platform: null,
     archived: false,
   };
   const nav: NavHistory = [

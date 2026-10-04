@@ -13,6 +13,20 @@ describe("safeToSpend", () => {
     expect(r.status).toBe("on-track");
   });
 
+  it("counts a salary that's due but not confirmed yet, and says so", () => {
+    const r = safeToSpend({
+      ...base,
+      income: 0,
+      expectedIncome: toPaise(100_000),
+      spent: toPaise(2_000),
+      daysLeft: 29,
+    });
+    expect(r.status).toBe("on-track");
+    expect(r.spendable).toBe(toPaise(80_000));
+    expect(r.expected).toBe(toPaise(100_000));
+    expect(safeToSpend({ ...base, income: 0, spent: 0, daysLeft: 29 }).status).toBe("no-income");
+  });
+
   it("rounds the daily figure down to whole rupees", () => {
     const r = safeToSpend({ ...base, income: toPaise(1_000), spent: 0, daysLeft: 3 });
     expect(r.perDay).toBe(toPaise(266));

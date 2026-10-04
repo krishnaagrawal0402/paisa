@@ -15,7 +15,7 @@ export const getHoldings = cache(async (): Promise<Holding[]> => {
   const { data, error } = await supabase
     .from("holdings")
     .select(
-      "id, name, asset_class, scheme_code, opening_units, opening_cost, opening_date, manual_value, manual_value_at, fd_rate, fd_start, fd_maturity, fd_compounding, archived",
+      "id, name, asset_class, scheme_code, opening_units, opening_cost, opening_date, manual_value, manual_value_at, fd_rate, fd_start, fd_maturity, fd_compounding, platform, archived",
     )
     .order("sort")
     .order("created_at");

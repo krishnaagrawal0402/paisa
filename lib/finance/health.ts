@@ -37,7 +37,10 @@ export type Health = {
   score: number;
   grade: "A" | "B" | "C" | "D";
   pillars: Pillar[];
-  /** Fewer than 3 pillars had data (e.g. no income logged yet): the score is a rough early read. */
+  /**
+   * A rough early read: no income logged yet (the days before a salary lands), or
+   * fewer than 3 pillars with data. Savings, investing and debt all hinge on income.
+   */
   provisional: boolean;
 };
 
@@ -101,5 +104,5 @@ export function healthScore(i: HealthInput): Health {
   const score =
     totalWeight === 0 ? 0 : Math.round((counted.reduce((s, p) => s + p.weight * p.ratio!, 0) / totalWeight) * 100);
   const grade = score >= 85 ? "A" : score >= 70 ? "B" : score >= 55 ? "C" : "D";
-  return { score, grade, pillars, provisional: counted.length < 3 };
+  return { score, grade, pillars, provisional: !hasIncome || counted.length < 3 };
 }

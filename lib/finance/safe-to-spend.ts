@@ -3,6 +3,8 @@ import type { Paise } from "@/lib/money";
 export type SafeToSpendInput = {
   /** Income received so far this financial month. */
   income: Paise;
+  /** Recurring income still to come this month (a salary not yet confirmed), counted until it arrives. */
+  expectedIncome?: Paise;
   /** Expenses so far this financial month. */
   spent: Paise;
   /** Share of income to keep aside, 0–100. */
@@ -26,20 +28,27 @@ export type SafeToSpend = {
   used: number;
   /** How far through the month we are, 0–1, for the pace marker. */
   elapsed: number;
+  /** The part of the budget that rests on income not received yet. */
+  expected: Paise;
 };
 
 /**
  * "How much can I spend per day and still hit my savings target?"
  * spendable = income − savings target − commitments; perDay = (spendable − spent) / days left.
+ * Income still expected this month (salary due but not confirmed) counts too, so the
+ * days before payday don't show an empty budget.
  */
 export function safeToSpend({
-  income,
+  income: received,
+  expectedIncome = 0,
   spent,
   savingsTargetPct,
   committed = 0,
   daysTotal,
   daysLeft,
 }: SafeToSpendInput): SafeToSpend {
+  const expected = Math.max(0, expectedIncome);
+  const income = received + expected;
   const elapsed = daysTotal > 0 ? Math.min(1, Math.max(0, (daysTotal - daysLeft + 1) / daysTotal)) : 1;
   const spendable = Math.max(0, income - Math.round((income * savingsTargetPct) / 100) - committed);
   const remaining = spendable - spent;
@@ -54,5 +63,5 @@ export function safeToSpend({
   else if (remaining < spendable * 0.15) status = "tight";
   else status = "on-track";
 
-  return { status, spendable, remaining, perDay, used, elapsed };
+  return { status, spendable, remaining, perDay, used, elapsed, expected };
 }

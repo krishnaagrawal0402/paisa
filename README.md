@@ -15,8 +15,8 @@
 - **Pulse.** Net worth, this month's income, spending, investments and savings at a glance, plus how much is **safe to spend per day** after bills and your savings target.
 - **Log in two seconds.** Type `450 swiggy yesterday upi` and Paisa fills in the amount, category, account and date. Learns your merchants as you go.
 - **Import bank statements.** CSV, XLS or XLSX from any Indian bank. Read in your browser, columns guessed for you, duplicates skipped, one-tap undo.
-- **Recurring entries.** Salary, rent, SIPs and subscriptions log themselves, or wait for a one-tap confirm when the amount varies.
-- **Wealth.** Mutual funds priced daily from AMFI (no API key), FDs with interest worked out, EPF/PPF/stocks/gold, loans with EMI schedules, and a 12-month net-worth trend.
+- **Recurring entries.** Salary, rent, SIPs and subscriptions log themselves, or wait for a one-tap confirm when the amount or date varies.
+- **Wealth.** Mutual funds priced daily from AMFI (no API key), FDs with interest worked out, EPF/PPF/stocks/gold, grouped by the app or broker they're in. Credit card bills with due dates and limit usage, loans with EMI schedules, and a 12-month net-worth trend.
 - **Plan.** Budgets that warn before you overspend, goals with "₹X a month to make it", and an emergency-fund target based on what you actually spend.
 - **Monthly report card.** A health score across five pillars, insights in plain English, and a story you can share (amounts hidden unless you choose to show them).
 - **Your data is yours.** It lives in your own database. Export everything as JSON or CSV, or delete your account, anytime. There's a one-tap "hide amounts" mode for using it in public.

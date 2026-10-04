@@ -5,12 +5,13 @@ import { Allocation } from "@/components/wealth/allocation";
 import { Investments } from "@/components/wealth/investments";
 import { Loans } from "@/components/wealth/loans";
 import { NetWorthChart } from "@/components/wealth/net-worth-chart";
+import { getCardBills } from "@/lib/cards";
 import { getWealth } from "@/lib/wealth";
 
 export const metadata = { title: "Wealth" };
 
 export default async function WealthPage() {
-  const wealth = await getWealth();
+  const [wealth, bills] = await Promise.all([getWealth(), getCardBills()]);
   const { totals } = wealth;
   const activeAccounts = wealth.accounts.filter((a) => !a.archived);
   const hasAnything = wealth.accounts.length > 0 || wealth.holdings.length > 0 || wealth.loans.length > 0;
@@ -60,7 +61,7 @@ export default async function WealthPage() {
 
       <Investments holdings={wealth.holdings} accounts={activeAccounts} />
       <Loans loans={wealth.loans} accounts={activeAccounts} />
-      <Accounts accounts={wealth.accounts} />
+      <Accounts accounts={wealth.accounts} bills={bills} />
     </div>
   );
 }

@@ -8,6 +8,9 @@ const account = (id: string, name: string, type: Account["type"]): Account => ({
   type,
   opening_balance: 0,
   archived: false,
+  statement_day: null,
+  due_day: null,
+  credit_limit: null,
   sort: 0,
 });
 const category = (id: string, name: string, kind: "income" | "expense" = "expense"): Category => ({

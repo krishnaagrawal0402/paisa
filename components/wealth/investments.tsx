@@ -32,7 +32,13 @@ const pct = (x: number) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(1)}%`;
 
 export function Investments({ holdings, accounts }: { holdings: HoldingView[]; accounts: Account[] }) {
   const [editing, setEditing] = useState<Editing>(null);
-  const live = holdings.filter((h) => !h.archived);
+  const [platform, setPlatform] = useState<string | null>(null);
+  const platforms = [...new Set(holdings.map((h) => h.platform).filter((p): p is string => Boolean(p)))].sort();
+  const allLive = holdings.filter((h) => !h.archived);
+  const livePlatforms = [...new Set(allLive.map((h) => h.platform).filter(Boolean))];
+  // Once investments sit on two or more platforms, chips filter the list (and the totals) by platform.
+  const filtering = livePlatforms.length >= 2;
+  const live = filtering && platform ? allLive.filter((h) => h.platform === platform) : allLive;
   const archived = holdings.filter((h) => h.archived);
   const value = live.reduce((s, h) => s + h.position.value, 0);
   const invested = live.reduce((s, h) => s + h.position.invested, 0);
@@ -56,7 +62,20 @@ export function Investments({ holdings, accounts }: { holdings: HoldingView[]; a
         </Button>
       </div>
 
-      {live.length === 0 ? (
+      {filtering && (
+        <div className="-mx-4 flex [scrollbar-width:none] gap-2 overflow-x-auto px-4 md:mx-0 md:px-0">
+          <Chip tone="invest" selected={platform === null} onClick={() => setPlatform(null)}>
+            All
+          </Chip>
+          {livePlatforms.map((p) => (
+            <Chip key={p} tone="invest" selected={platform === p} onClick={() => setPlatform(p)}>
+              {p}
+            </Chip>
+          ))}
+        </div>
+      )}
+
+      {allLive.length === 0 ? (
         <button
           type="button"
           onClick={() => setEditing("new")}
@@ -90,6 +109,7 @@ export function Investments({ holdings, accounts }: { holdings: HoldingView[]; a
             key={editing === "new" ? "new" : editing.id}
             holding={editing === "new" ? null : editing}
             accounts={accounts}
+            platforms={platforms}
             onDone={() => setEditing(null)}
           />
         )}
@@ -118,6 +138,7 @@ function HoldingRows({ holdings, onSelect }: { holdings: HoldingView[]; onSelect
                 <span className="block truncate text-sm font-medium">{h.name}</span>
                 <span className="text-muted block truncate text-xs">
                   {ASSET_CLASSES[h.asset_class].label}
+                  {h.platform && ` · ${h.platform}`}
                   {p.xirr !== null && ` · ${pct(p.xirr)} a year`}
                   {p.estimated && " · estimate"}
                 </span>
@@ -145,14 +166,16 @@ type Mode = "details" | "add" | "redeem" | "value";
 function HoldingSheet({
   holding,
   accounts,
+  platforms,
   onDone,
 }: {
   holding: HoldingView | null;
   accounts: Account[];
+  platforms: string[];
   onDone: () => void;
 }) {
   const [mode, setMode] = useState<Mode>("details");
-  if (!holding) return <HoldingForm holding={null} onDone={onDone} />;
+  if (!holding) return <HoldingForm holding={null} platforms={platforms} onDone={onDone} />;
   const manual = ASSET_CLASSES[holding.asset_class].manual;
   const p = holding.position;
   const options: { value: Mode; label: string; activeClass: string }[] = [
@@ -179,7 +202,7 @@ function HoldingSheet({
         </p>
       )}
       <Segmented value={mode} onChange={setMode} options={options} />
-      {mode === "details" && <HoldingForm holding={holding} onDone={onDone} />}
+      {mode === "details" && <HoldingForm holding={holding} platforms={platforms} onDone={onDone} />}
       {(mode === "add" || mode === "redeem") && (
         <FlowForm holding={holding} accounts={accounts} type={mode === "add" ? "invest" : "redeem"} onDone={onDone} />
       )}
@@ -201,8 +224,17 @@ function rupeesText(paise: number | null | undefined) {
   return paise ? String(paise / 100) : "";
 }
 
-function HoldingForm({ holding, onDone }: { holding: HoldingView | null; onDone: () => void }) {
+function HoldingForm({
+  holding,
+  platforms,
+  onDone,
+}: {
+  holding: HoldingView | null;
+  platforms: string[];
+  onDone: () => void;
+}) {
   const toast = useToast();
+  const [platform, setPlatform] = useState(holding?.platform ?? "");
   const [assetClass, setAssetClass] = useState<AssetClass>(holding?.asset_class ?? "mutual_fund");
   const [name, setName] = useState(holding?.name ?? "");
   const [schemeCode, setSchemeCode] = useState<number | null>(holding?.scheme_code ?? null);
@@ -262,6 +294,7 @@ function HoldingForm({ holding, onDone }: { holding: HoldingView | null; onDone:
         fd_start: fdStart || null,
         fd_maturity: fdMaturity || null,
         fd_compounding: compounding,
+        platform: platform.trim() || null,
       });
       if (!result.ok) return setError(result.error);
       onDone();
@@ -449,6 +482,21 @@ function HoldingForm({ holding, onDone }: { holding: HoldingView | null; onDone:
           </p>
         </div>
       )}
+
+      <Labeled label="Platform (optional)">
+        <Input
+          value={platform}
+          onChange={(e) => setPlatform(e.target.value)}
+          list="holding-platforms"
+          maxLength={40}
+          placeholder="The app or broker it's in, like Kotak Neo"
+        />
+        <datalist id="holding-platforms">
+          {platforms.map((p) => (
+            <option key={p} value={p} />
+          ))}
+        </datalist>
+      </Labeled>
 
       {error && <p className="text-expense text-sm">{error}</p>}
       <Button type="submit" disabled={pending} className="w-full">

@@ -65,6 +65,18 @@ describe("healthScore", () => {
     expect(h.provisional).toBe(true);
   });
 
+  it("is provisional before the salary lands, even with EMIs and budgets scored", () => {
+    const h = healthScore({
+      ...base,
+      income: 0,
+      invested: 0,
+      emis: toPaise(12_000),
+      budgets: [{ limit: 100, spent: 50 }],
+    });
+    expect(h.pillars.filter((p) => p.ratio !== null).length).toBe(3);
+    expect(h.provisional).toBe(true);
+  });
+
   it("grades at the documented thresholds", () => {
     const grade = (spent: number) => healthScore({ ...base, invested: toPaise(20_000), spent: toPaise(spent) }).grade;
     expect(grade(70_000)).toBe("A");

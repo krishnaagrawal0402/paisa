@@ -159,6 +159,7 @@ Rule-based parser in TypeScript: free, instant, no API key, fully unit-tested.
 - `mode: auto` posts silently. `mode: confirm` (default for salary) shows a "Salary arrived? ₹1,20,000 ✓ / edit" card.
 - **Daily Vercel Cron** (`/api/cron/daily`, protected by `CRON_SECRET`) posts due occurrences. A catch-up on app open covers missed runs. The unique `(recurring_id, occurrence_date)` makes both safe to repeat.
 - A Subscriptions view lists recurring expenses with their monthly total.
+- **Salary that varies by a few days (added after M8):** confirming logs it on the day it arrived (defaults to today). Until it arrives, safe-to-spend budgets with the expected amount and says so, and the health score stays hidden as an early read.
 
 ### 5.4 Bank statement import (CSV / XLSX)
 
@@ -182,6 +183,7 @@ Rule-based parser in TypeScript: free, instant, no API key, fully unit-tested.
 - Loan outstanding is computed from the amortisation schedule (principal, rate, tenure, start), assuming EMIs are paid, with a manual override for prepayments. Shows interest paid so far, payoff date and remaining interest.
 - An EMI recurring rule links to the loan; each payment is split into principal and interest in the loan view.
 - A credit card is an account whose balance is a liability. Paying the bill is a transfer from bank to card, which is not double-counted as spending.
+- **Card bills (added after M8):** optional statement day, due day and credit limit per card. The bill is what was owed on the last statement date minus payments since; it shows in "Next 7 days" and on the card row with limit usage (`lib/finance/card.ts`).
 - ~~Monthly net-worth snapshots~~ → **built (M5) as computed history**: the 12-month trend is rebuilt on each view from transactions (`account_balances_at()`), NAV history, FD maths and loan schedules (`lib/wealth.ts`). It's accurate for the past too, including months before you started using the app.
 
 ### 5.7 Budgets & goals

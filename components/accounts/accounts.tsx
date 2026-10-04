@@ -8,14 +8,18 @@ import { Input } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { deleteAccount, saveAccount, setAccountArchived } from "@/lib/actions/ledger";
+import type { CardBillWithName } from "@/lib/cards";
 import { cn } from "@/lib/cn";
-import { formatINR } from "@/lib/money";
+import { utilisation } from "@/lib/finance/card";
+import { formatCompactINR, formatINR } from "@/lib/money";
+import { ordinal } from "@/lib/month";
+import { formatDue } from "@/lib/recurring";
 import { parseAmount } from "@/lib/parse/amount";
 import { ACCOUNT_TYPES, type AccountType, type AccountWithBalance } from "@/lib/types";
 
 type Editing = AccountWithBalance | "new" | null;
 
-export function Accounts({ accounts }: { accounts: AccountWithBalance[] }) {
+export function Accounts({ accounts, bills = [] }: { accounts: AccountWithBalance[]; bills?: CardBillWithName[] }) {
   const [editing, setEditing] = useState<Editing>(null);
   const [showArchived, setShowArchived] = useState(false);
   const active = accounts.filter((a) => !a.archived);
@@ -43,7 +47,7 @@ export function Accounts({ accounts }: { accounts: AccountWithBalance[] }) {
           </p>
         </button>
       ) : (
-        <AccountRows accounts={active} onSelect={setEditing} />
+        <AccountRows accounts={active} bills={bills} onSelect={setEditing} />
       )}
 
       {archived.length > 0 && (
@@ -57,7 +61,7 @@ export function Accounts({ accounts }: { accounts: AccountWithBalance[] }) {
           </button>
           {showArchived && (
             <div className="mt-3 opacity-70">
-              <AccountRows accounts={archived} onSelect={setEditing} />
+              <AccountRows accounts={archived} bills={bills} onSelect={setEditing} />
             </div>
           )}
         </div>
@@ -80,11 +84,40 @@ export function Accounts({ accounts }: { accounts: AccountWithBalance[] }) {
   );
 }
 
+/** "Bill ₹13,400 due 7 Oct · 32% of limit" under a card's name. */
+function cardLine(a: AccountWithBalance, bill: CardBillWithName | undefined): React.ReactNode {
+  const used = utilisation(-a.balance, a.credit_limit);
+  const parts: React.ReactNode[] = [];
+  if (bill?.status === "due")
+    parts.push(
+      <span key="bill">
+        Bill <span className="money">{formatINR(bill.due)}</span> due {formatDue(bill.dueDate)}
+      </span>,
+    );
+  if (bill?.status === "overdue")
+    parts.push(
+      <span key="bill" className="text-expense">
+        <span className="money">{formatINR(bill.due)}</span> overdue since {formatDue(bill.dueDate)}
+      </span>,
+    );
+  if (bill?.status === "paid") parts.push(<span key="bill">Bill paid ✓</span>);
+  if (used !== null)
+    parts.push(
+      <span key="limit" className={cn(used > 0.3 && "text-warn")}>
+        {Math.round(used * 100)}% of <span className="money">{formatCompactINR(a.credit_limit!)}</span> limit
+      </span>,
+    );
+  if (parts.length === 0) return ACCOUNT_TYPES[a.type].label;
+  return parts.flatMap((p, i) => (i === 0 ? [p] : [" · ", p]));
+}
+
 function AccountRows({
   accounts,
+  bills,
   onSelect,
 }: {
   accounts: AccountWithBalance[];
+  bills: CardBillWithName[];
   onSelect: (a: AccountWithBalance) => void;
 }) {
   return (
@@ -103,7 +136,14 @@ function AccountRows({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{a.name}</span>
-                <span className="text-muted block text-xs">{ACCOUNT_TYPES[a.type].label}</span>
+                <span className="text-muted block text-xs">
+                  {a.type === "credit_card"
+                    ? cardLine(
+                        a,
+                        bills.find((b) => b.accountId === a.id),
+                      )
+                    : ACCOUNT_TYPES[a.type].label}
+                </span>
               </span>
               <span className="text-right">
                 <span
@@ -135,6 +175,9 @@ function AccountForm({ account, onDone }: { account: AccountWithBalance | null; 
     const shown = account.type === "credit_card" ? -account.balance : account.balance;
     return String(shown / 100);
   });
+  const [statementDay, setStatementDay] = useState(account?.statement_day ?? null);
+  const [dueDay, setDueDay] = useState(account?.due_day ?? null);
+  const [limitText, setLimitText] = useState(account?.credit_limit ? String(account.credit_limit / 100) : "");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -149,9 +192,19 @@ function AccountForm({ account, onDone }: { account: AccountWithBalance | null; 
     const targetBalance = isCard ? -entered : entered;
     // Balance = opening + Σ transactions, so move the opening balance to land on today's figure.
     const movement = account ? account.balance - account.opening_balance : 0;
+    const limit = limitText.trim() ? parseAmount(limitText) : null;
+    if (limitText.trim() && limit === null) return setError("Enter the credit limit as a number, like 2L");
 
     startTransition(async () => {
-      const result = await saveAccount({ id: account?.id, name, type, opening_balance: targetBalance - movement });
+      const result = await saveAccount({
+        id: account?.id,
+        name,
+        type,
+        opening_balance: targetBalance - movement,
+        statement_day: statementDay,
+        due_day: dueDay,
+        credit_limit: limit,
+      });
       if (!result.ok) return setError(result.error);
       onDone();
       toast.show({ message: account ? "Account saved" : `${name.trim()} added` });
@@ -229,6 +282,34 @@ function AccountForm({ account, onDone }: { account: AccountWithBalance | null; 
         </p>
       </div>
 
+      {isCard && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <DaySelect id="statement-day" label="Statement date" value={statementDay} onChange={setStatementDay} />
+            <DaySelect id="due-day" label="Payment due" value={dueDay} onChange={setDueDay} />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="credit-limit" className="text-muted text-xs font-medium tracking-[0.08em] uppercase">
+              Credit limit
+            </label>
+            <div className="relative">
+              <span className="text-muted pointer-events-none absolute top-1/2 left-4 -translate-y-1/2">₹</span>
+              <Input
+                id="credit-limit"
+                value={limitText}
+                onChange={(e) => setLimitText(e.target.value)}
+                inputMode="decimal"
+                placeholder="Optional"
+                className="pl-9 tabular-nums"
+              />
+            </div>
+          </div>
+          <p className="text-subtle text-xs">
+            Both dates are on your card statement. With them, Paisa shows each bill and when it&apos;s due.
+          </p>
+        </div>
+      )}
+
       {error && <p className="text-expense text-sm">{error}</p>}
 
       <Button type="submit" disabled={pending} className="w-full">
@@ -253,5 +334,40 @@ function AccountForm({ account, onDone }: { account: AccountWithBalance | null; 
         </div>
       )}
     </form>
+  );
+}
+
+function DaySelect({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: number | null;
+  onChange: (day: number | null) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <label htmlFor={id} className="text-muted text-xs font-medium tracking-[0.08em] uppercase">
+        {label}
+      </label>
+      <select
+        id={id}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
+        className="border-line bg-glass text-fg focus:border-save/60 h-12 w-full rounded-2xl border px-4 text-base outline-none"
+      >
+        <option value="" className="bg-bg-raised">
+          Not set
+        </option>
+        {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+          <option key={day} value={day} className="bg-bg-raised">
+            {day >= 29 ? `${ordinal(day)} (or last day)` : `${ordinal(day)} of the month`}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }

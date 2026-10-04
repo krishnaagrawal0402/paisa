@@ -58,7 +58,7 @@ export const getAccounts = cache(async ({ includeArchived = false } = {}): Promi
   const supabase = await createClient();
   let query = supabase
     .from("accounts")
-    .select("id, name, type, opening_balance, archived, sort")
+    .select("id, name, type, opening_balance, archived, sort, statement_day, due_day, credit_limit")
     .order("sort")
     .order("created_at");
   if (!includeArchived) query = query.eq("archived", false);
@@ -71,6 +71,7 @@ export const getAccounts = cache(async ({ includeArchived = false } = {}): Promi
   return (accounts ?? []).map((a) => ({
     ...a,
     opening_balance: Number(a.opening_balance),
+    credit_limit: a.credit_limit === null ? null : Number(a.credit_limit),
     balance: byId.get(a.id) ?? Number(a.opening_balance),
   }));
 });

@@ -87,12 +87,31 @@ export async function restoreTransaction(row: Transaction): Promise<ActionResult
 
 // ─── accounts ────────────────────────────────────────────────────────────────
 
-const accountSchema = z.object({
-  id: id.optional(),
-  name: z.string().trim().min(1, "Give it a name").max(40),
-  type: z.enum(["bank", "cash", "wallet", "credit_card"]),
-  opening_balance: z.number().int().min(-1e14).max(1e14),
-});
+const day = z.number().int().min(1).max(31).nullish();
+
+const accountSchema = z
+  .object({
+    id: id.optional(),
+    name: z.string().trim().min(1, "Give it a name").max(40),
+    type: z.enum(["bank", "cash", "wallet", "credit_card"]),
+    opening_balance: z.number().int().min(-1e14).max(1e14),
+    statement_day: day,
+    due_day: day,
+    credit_limit: paise.nullish(),
+  })
+  .refine((a) => (a.statement_day == null) === (a.due_day == null), {
+    message: "Set both the statement date and the due date, or neither",
+  })
+  // Billing fields only mean something for cards.
+  .transform((a) => {
+    const card = a.type === "credit_card";
+    return {
+      ...a,
+      statement_day: card ? (a.statement_day ?? null) : null,
+      due_day: card ? (a.due_day ?? null) : null,
+      credit_limit: card ? (a.credit_limit ?? null) : null,
+    };
+  });
 
 export type AccountInput = z.input<typeof accountSchema>;
 

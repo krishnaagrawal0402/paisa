@@ -31,7 +31,15 @@ const ACCOUNTS = [
   { key: "bank", name: "HDFC Savings", type: "bank", opening: 40_000 },
   { key: "cash", name: "Cash", type: "cash", opening: 3_000 },
   { key: "upi", name: "Paytm UPI", type: "wallet", opening: 1_500 },
-  { key: "card", name: "Amazon Pay ICICI", type: "credit_card", opening: 0 },
+  {
+    key: "card",
+    name: "Amazon Pay ICICI",
+    type: "credit_card",
+    opening: 0,
+    statementDay: 20,
+    dueDay: 7,
+    limit: 2_00_000,
+  },
 ];
 
 // ─── dates (plain YYYY-MM-DD, India time) ────────────────────────────────────
@@ -135,6 +143,9 @@ try {
           type: a.type,
           opening_balance: paise(a.opening),
           sort: i,
+          statement_day: a.statementDay ?? null,
+          due_day: a.dueDay ?? null,
+          credit_limit: a.limit ? paise(a.limit) : null,
         })),
       )}
       returning id, name`;
@@ -150,6 +161,7 @@ try {
           name: "Parag Parikh Flexi Cap Fund - Direct Plan - Growth",
           asset_class: "mutual_fund",
           scheme_code: 122639,
+          platform: "Zerodha",
           opening_units: +(paise(1_80_000) / 100 / (ppfasNav * 0.9)).toFixed(4),
           opening_cost: paise(1_80_000),
           opening_date: holdingsSince,
@@ -160,6 +172,7 @@ try {
           name: "UTI Nifty 50 Index Fund - Direct Plan - Growth",
           asset_class: "mutual_fund",
           scheme_code: 120716,
+          platform: "Groww",
           opening_units: +(paise(80_000) / 100 / (utiNav * 0.9)).toFixed(4),
           opening_cost: paise(80_000),
           opening_date: holdingsSince,
@@ -169,8 +182,8 @@ try {
       returning id, name`;
     const [ppfas, uti] = holdingRows.map((h) => h.id);
     const [{ id: fd }] = await tx`
-      insert into public.holdings (user_id, name, asset_class, opening_cost, fd_rate, fd_start, fd_maturity, fd_compounding, sort)
-      values (${uid}, 'SBI Fixed Deposit', 'fd', ${paise(1_00_000)}, 7.1, ${addDays(today, -240)}, ${addDays(today, 125)}, 'quarterly', 2)
+      insert into public.holdings (user_id, name, asset_class, opening_cost, fd_rate, fd_start, fd_maturity, fd_compounding, sort, platform)
+      values (${uid}, 'SBI Fixed Deposit', 'fd', ${paise(1_00_000)}, 7.1, ${addDays(today, -240)}, ${addDays(today, 125)}, 'quarterly', 2, 'SBI')
       returning id`;
     await tx`
       insert into public.holdings (user_id, name, asset_class, opening_cost, manual_value, manual_value_at, sort)
@@ -275,15 +288,10 @@ try {
         occurrence_date: t.rule ? t.date : null,
       });
 
-    let cardSpentLastMonth = 0;
     for (let k = -5; k <= 0; k++) {
       const day = (d) => iso(TY, TM + k, d);
       const daysInMonth = new Date(Date.UTC(TY, TM + k, 0)).getUTCDate();
-      let cardSpent = 0;
-      const card = (t) => {
-        if (t.date <= today) cardSpent += t.amount;
-        add({ ...t, account: acct.card });
-      };
+      const card = (t) => add({ ...t, account: acct.card });
 
       for (const r of RULES) {
         if (r.name === "Netflix" || r.name === "Spotify") {
@@ -302,17 +310,7 @@ try {
         });
       }
 
-      // Pay off last month's card bill, move cash around.
-      if (cardSpentLastMonth > 0) {
-        add({
-          type: "transfer",
-          date: day(15),
-          amount: cardSpentLastMonth,
-          account: acct.bank,
-          to: acct.card,
-          note: "Card bill",
-        });
-      }
+      // Move cash around.
       add({ type: "transfer", date: day(2), amount: 2_000, account: acct.bank, to: acct.cash, note: "ATM" });
       add({ type: "transfer", date: day(2), amount: 600, account: acct.bank, to: acct.upi, note: "Wallet top-up" });
 
@@ -400,8 +398,6 @@ try {
         category: "Transport",
         note: "HP petrol",
       });
-
-      cardSpentLastMonth = cardSpent;
     }
 
     // A few one-offs that make the story interesting.
@@ -451,6 +447,30 @@ try {
       category: "Shopping",
       note: "Croma headphones",
     });
+
+    // Card statements close on the 20th; each is paid in full on the 6th, a day before it's due.
+    // The current one (due tomorrow-ish) is left unpaid so the bill shows up on Pulse.
+    let paidSoFar = 0;
+    for (let k = -5; k <= -1; k++) {
+      const statement = iso(TY, TM + k, 20);
+      const payOn = iso(TY, TM + k + 1, 6);
+      if (payOn > today) break;
+      const owed =
+        txns
+          .filter((t) => t.account_id === acct.card && t.type === "expense" && t.occurred_on <= statement)
+          .reduce((sum, t) => sum + t.amount, 0) - paidSoFar;
+      if (owed > 0) {
+        add({
+          type: "transfer",
+          date: payOn,
+          amount: owed / 100,
+          account: acct.bank,
+          to: acct.card,
+          note: "Card bill",
+        });
+        paidSoFar += owed;
+      }
+    }
 
     await tx`insert into public.transactions ${tx(txns)}`;
 

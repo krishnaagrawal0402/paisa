@@ -11,6 +11,10 @@ export type Account = {
   opening_balance: Paise;
   archived: boolean;
   sort: number;
+  /** Credit cards only: billing cycle days (1–31) and limit. */
+  statement_day: number | null;
+  due_day: number | null;
+  credit_limit: Paise | null;
 };
 
 export type AccountWithBalance = Account & { balance: Paise };

@@ -34,6 +34,7 @@ const holdingSchema = z
     fd_start: date.nullish(),
     fd_maturity: date.nullish(),
     fd_compounding: z.enum(["monthly", "quarterly", "half_yearly", "yearly", "simple"]).nullish(),
+    platform: z.string().trim().max(40, "Keep the platform under 40 characters").nullish(),
   })
   .refine((h) => h.asset_class !== "mutual_fund" || h.scheme_code, { message: "Pick the fund from the search results" })
   .refine((h) => h.asset_class !== "fd" || (h.fd_rate !== null && h.fd_rate !== undefined && h.fd_start), {
@@ -58,6 +59,7 @@ export async function saveHolding(input: HoldingInput): Promise<ActionResult> {
       fd_maturity: h.asset_class === "fd" ? (h.fd_maturity ?? null) : null,
       fd_compounding: h.asset_class === "fd" ? (h.fd_compounding ?? "quarterly") : null,
       opening_date: h.asset_class === "fd" ? h.fd_start : (h.opening_date ?? null),
+      platform: h.platform || null,
     };
     const { error } = holdingId
       ? await supabase.from("holdings").update(fields).eq("id", holdingId)

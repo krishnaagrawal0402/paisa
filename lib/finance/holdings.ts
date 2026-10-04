@@ -18,6 +18,8 @@ export type Holding = {
   fd_start: string | null;
   fd_maturity: string | null;
   fd_compounding: Compounding | null;
+  /** Where it's held: "Kotak Neo", "ICICI iMobile". Free text, optional. */
+  platform: string | null;
   archived: boolean;
 };
 
