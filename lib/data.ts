@@ -9,11 +9,15 @@ import type { AccountWithBalance, Category, RecurringRule, Transaction, Transact
 
 export const getProfile = cache(async () => {
   const supabase = await createClient();
-  const { data } = await supabase.from("profiles").select("display_name, month_start_day, savings_target_pct").single();
+  const { data } = await supabase
+    .from("profiles")
+    .select("display_name, month_start_day, savings_target_pct, emergency_months_target")
+    .single();
   return {
     displayName: data?.display_name ?? "",
     monthStartDay: data?.month_start_day ?? 1,
     savingsTargetPct: data?.savings_target_pct ?? 20,
+    emergencyMonthsTarget: data?.emergency_months_target ?? 6,
   };
 });
 

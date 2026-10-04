@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 import { AnimatePresence, motion, useDragControls, usePresence } from "motion/react";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/cn";
 
 const DESKTOP = "(min-width: 768px)";
@@ -29,6 +29,14 @@ type SheetProps = {
 /** Bottom sheet on phones (drag the handle down to dismiss), centred dialog on desktop. */
 export function Sheet({ open, onClose, title, children }: SheetProps) {
   const isDesktop = useIsDesktop();
+  // Each open gets a fresh layer (new key). Otherwise reopening while the last
+  // one is still animating out would revive it, old form state and all.
+  const [opens, setOpens] = useState(0);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setOpens((n) => n + 1);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -45,7 +53,7 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
   return (
     <AnimatePresence>
       {open && (
-        <SheetLayer key="sheet" title={title} onClose={onClose} isDesktop={isDesktop}>
+        <SheetLayer key={opens} title={title} onClose={onClose} isDesktop={isDesktop}>
           {children}
         </SheetLayer>
       )}

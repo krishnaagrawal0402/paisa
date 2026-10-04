@@ -4,6 +4,7 @@ import { AddTransactionButton } from "@/components/activity/add-button";
 import { TransactionList } from "@/components/activity/transaction-list";
 import { CashflowChart } from "@/components/charts/cashflow-chart";
 import { Amount } from "@/components/money/amount";
+import { BudgetWatch } from "@/components/pulse/budget-watch";
 import { CategoryBreakdown } from "@/components/pulse/category-breakdown";
 import { PendingConfirmations } from "@/components/recurring/pending";
 import { Upcoming } from "@/components/recurring/upcoming";
@@ -25,10 +26,11 @@ import { safeToSpend } from "@/lib/finance/safe-to-spend";
 import { daysLeft as daysLeftIn } from "@/lib/month";
 import { occurrencesUntil } from "@/lib/recurring";
 import { formatCompactINR } from "@/lib/money";
+import { getPlanData } from "@/lib/plan";
 import { getWealth } from "@/lib/wealth";
 
 export default async function PulsePage() {
-  const [profile, month, accounts, categories, cashflow, rules, wealth] = await Promise.all([
+  const [profile, month, accounts, categories, cashflow, rules, wealth, plan] = await Promise.all([
     getProfile(),
     getCurrentMonth(),
     getAccounts({ includeArchived: true }),
@@ -36,6 +38,7 @@ export default async function PulsePage() {
     getCashflow(6),
     getRecurringRules(),
     getWealth({ withHistory: false }),
+    getPlanData(),
   ]);
   const today = getToday();
   const transactions = await getTransactions({ from: month.start, to: month.end });
@@ -154,6 +157,8 @@ export default async function PulsePage() {
             </div>
             <Upcoming rules={rules} categories={categories} today={today} />
           </div>
+
+          <BudgetWatch budgets={plan.budgets} />
 
           <div className="grid gap-5 lg:grid-cols-2">
             <CashflowChart months={cashflow} />

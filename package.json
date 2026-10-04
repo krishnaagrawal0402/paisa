@@ -19,6 +19,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
+    "canvas-confetti": "^1.9.4",
     "date-fns": "^4.4.0",
     "lucide-react": "^1.51.0",
     "motion": "^14.0.0",
@@ -33,6 +34,7 @@
   "devDependencies": {
     "@next/env": "^16.3.8",
     "@tailwindcss/postcss": "^4",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^26.6.4",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19",

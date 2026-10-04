@@ -131,6 +131,7 @@ try {
     await tx`select set_config('request.jwt.claims', ${JSON.stringify({ sub: user.id, role: "authenticated" })}, true)`;
     const visible = await tx`select id from public.accounts`;
     const visibleBalances = await tx`select account_id from public.account_balances`;
+    const spendByCategory = await tx`select category_id, total from public.category_spend(current_date, current_date)`;
     const daily = Object.fromEntries(
       (await tx`select type, total from public.daily_totals(current_date, current_date)`).map((r) => [
         r.type,
@@ -143,6 +144,12 @@ try {
       visible.length === 2 && visibleBalances.length === 2 && !visible.some((a) => a.id === otherAccount.id),
     );
     check("daily_totals sums only the caller's transactions", daily.income === 100000 && daily.expense === 30000);
+    check(
+      "category_spend sums only the caller's spending, per category",
+      spendByCategory.length === 1 &&
+        spendByCategory[0].category_id === food.id &&
+        Number(spendByCategory[0].total) === 30000,
+    );
 
     // ── statement import ──
     await tx`set local role authenticated`;
