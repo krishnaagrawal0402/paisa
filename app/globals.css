@@ -33,6 +33,17 @@
   --radius-card: 1.5rem;
 
   --animate-aurora: aurora 24s ease-in-out infinite alternate;
+  --animate-story: story linear forwards; /* duration set inline per slide */
+
+  /* Story progress bars fill over the slide duration (set inline). */
+  @keyframes story {
+    from {
+      width: 0%;
+    }
+    to {
+      width: 100%;
+    }
+  }
 
   @keyframes aurora {
     0% {

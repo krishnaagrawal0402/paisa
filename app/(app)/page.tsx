@@ -5,6 +5,8 @@ import { TransactionList } from "@/components/activity/transaction-list";
 import { CashflowChart } from "@/components/charts/cashflow-chart";
 import { Amount } from "@/components/money/amount";
 import { BudgetWatch } from "@/components/pulse/budget-watch";
+import { HealthCard } from "@/components/pulse/health-card";
+import { ReportReady } from "@/components/pulse/report-ready";
 import { CategoryBreakdown } from "@/components/pulse/category-breakdown";
 import { PendingConfirmations } from "@/components/recurring/pending";
 import { Upcoming } from "@/components/recurring/upcoming";
@@ -27,6 +29,8 @@ import { daysLeft as daysLeftIn } from "@/lib/month";
 import { occurrencesUntil } from "@/lib/recurring";
 import { formatCompactINR } from "@/lib/money";
 import { getPlanData } from "@/lib/plan";
+import { getReport } from "@/lib/report";
+import { shiftMonthKey } from "@/lib/month";
 import { getWealth } from "@/lib/wealth";
 
 export default async function PulsePage() {
@@ -41,7 +45,13 @@ export default async function PulsePage() {
     getPlanData(),
   ]);
   const today = getToday();
-  const transactions = await getTransactions({ from: month.start, to: month.end });
+  const [transactions, report, lastReport] = await Promise.all([
+    getTransactions({ from: month.start, to: month.end }),
+    getReport(month.key),
+    getReport(shiftMonthKey(month.key, -1)),
+  ]);
+  // Nudge about last month's report during the first days of a new month.
+  const showLastReport = lastReport.hasData && daysLeftIn(month, month.start) - daysLeftIn(month, today) < 10;
   const totals = totalsOf(transactions);
   // Bank + cash + investments − cards − loans.
   const netWorth = wealth.totals.net;
@@ -69,13 +79,21 @@ export default async function PulsePage() {
   return (
     <div className="space-y-5">
       <header>
-        <p className="text-muted text-sm">{month.label}</p>
+        <p className="text-muted text-sm">
+          {month.label} ·{" "}
+          <Link href={`/report/${month.key}`} className="text-save underline-offset-4 hover:underline">
+            Report card
+          </Link>
+        </p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight md:text-3xl">
           Hey {profile.displayName || "there"} 👋
         </h1>
       </header>
 
       <PendingConfirmations rules={pending} categories={categories} />
+      {showLastReport && (
+        <ReportReady monthKey={lastReport.month.key} monthName={lastReport.month.label.replace(/ \d{4}$/, "")} />
+      )}
 
       <Card className="relative overflow-hidden p-6 md:p-8">
         <div aria-hidden className="bg-income/10 absolute -top-24 -right-16 size-64 rounded-full blur-3xl" />
@@ -158,6 +176,10 @@ export default async function PulsePage() {
             <Upcoming rules={rules} categories={categories} today={today} />
           </div>
 
+          {/* An early-month score from 1–2 pillars would mislead; wait until income is in. */}
+          {report.hasData && !report.health.provisional && (
+            <HealthCard health={report.health} monthKey={month.key} monthLabel={month.label} />
+          )}
           <BudgetWatch budgets={plan.budgets} />
 
           <div className="grid gap-5 lg:grid-cols-2">
