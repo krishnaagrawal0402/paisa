@@ -27,6 +27,10 @@ Statement import guesses columns from their headers. If your bank's export isn't
 
 Narration cleanup (turning `UPI/DR/4071234/SWIGGY/YESB/...` into `Swiggy`) lives in [`lib/import/clean.ts`](lib/import/clean.ts), with tests in `clean.test.ts`.
 
+### Share a statement layout safely
+
+Need Paisa to read a PDF it doesn't understand yet (a CAS, a bank or card statement)? Run `npm run cas:layout -- path/to/file.pdf` on your own machine. It asks for the PDF password without showing or storing it, then writes a `.layout.txt` next to the PDF: every piece of text with its position, all digits turned into 9s, and PAN numbers, email addresses and any words you list (names, address) hidden. Check the file, then attach it to an issue. **Never attach the PDF itself.**
+
 ### Add a merchant
 
 [`lib/parse/merchants.ts`](lib/parse/merchants.ts) maps keywords to default categories (`zepto` → Groceries). Add the lower-case name to the right line. Two-word names also go in `MULTI_WORD`. This drives both quick-add (`450 zepto`) and statement import.
