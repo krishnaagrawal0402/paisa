@@ -20,6 +20,7 @@ const transactionSchema = z
     to_account_id: id.nullish(),
     category_id: id.nullish(),
     note: z.string().trim().max(200).nullish(),
+    source: z.enum(["manual", "nl"]).default("manual"),
   })
   .transform((t) => ({
     ...t,
@@ -38,10 +39,11 @@ const TRANSACTION_COLUMNS =
 
 export async function saveTransaction(input: TransactionInput): Promise<ActionResult<Transaction>> {
   return run(async (supabase) => {
-    const { id: existingId, ...fields } = transactionSchema.parse(input);
+    const { id: existingId, source, ...fields } = transactionSchema.parse(input);
+    // Source is set once, on create; editing an imported or recurring entry doesn't change where it came from.
     const query = existingId
       ? supabase.from("transactions").update(fields).eq("id", existingId)
-      : supabase.from("transactions").insert(fields);
+      : supabase.from("transactions").insert({ ...fields, source });
     const { data, error } = await query.select(TRANSACTION_COLUMNS).single();
     if (error) throw error;
     return { ...data, amount: Number(data.amount) };

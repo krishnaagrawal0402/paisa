@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Trash2 } from "lucide-react";
+import { ArrowRight, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,9 @@ import { deleteTransaction, restoreTransaction, saveTransaction } from "@/lib/ac
 import { cn } from "@/lib/cn";
 import { formatINR } from "@/lib/money";
 import { addDays, todayIn } from "@/lib/month";
+import type { CategoryRule } from "@/lib/categorize";
 import { parseAmount } from "@/lib/parse/amount";
+import { parseNatural } from "@/lib/parse/nl";
 import type { Account, Category, Transaction, TransactionType } from "@/lib/types";
 
 type QuickAddApi = {
@@ -55,10 +57,12 @@ type SheetState = { open: boolean; type: TransactionType; editing: Transaction |
 export function QuickAddProvider({
   accounts,
   categories,
+  rules,
   children,
 }: {
   accounts: Account[];
   categories: Category[];
+  rules: CategoryRule[];
   children: React.ReactNode;
 }) {
   const [state, setState] = useState<SheetState>({ open: false, type: "expense", editing: null, key: 0 });
@@ -96,6 +100,7 @@ export function QuickAddProvider({
           key={state.key}
           accounts={accounts}
           categories={categories}
+          rules={rules}
           editing={state.editing}
           initialType={state.type}
           onDone={close}
@@ -119,12 +124,14 @@ const VISIBLE_CATEGORIES = 8;
 function TransactionForm({
   accounts,
   categories,
+  rules,
   editing,
   initialType,
   onDone,
 }: {
   accounts: Account[];
   categories: Category[];
+  rules: CategoryRule[];
   editing: Transaction | null;
   initialType: TransactionType;
   onDone: () => void;
@@ -144,6 +151,7 @@ function TransactionForm({
   const [toAccountId, setToAccountId] = useState<string | null>(editing?.to_account_id ?? null);
   const [date, setDate] = useState(editing?.occurred_on ?? today);
   const [note, setNote] = useState(editing?.note ?? "");
+  const [typed, setTyped] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -178,6 +186,21 @@ function TransactionForm({
     );
   }
 
+  /** "450 swiggy dinner yesterday hdfc" fills the fields below as you type; anything can still be changed. */
+  function applyTyped(text: string) {
+    setTyped(text);
+    if (!text.trim()) return;
+    const parsed = parseNatural(text, { accounts, categories, rules, today });
+    setType(parsed.type);
+    setAmountText(parsed.amount ? String(parsed.amount / 100) : "");
+    setCategoryId(parsed.categoryId);
+    if (parsed.accountId) setAccountId(parsed.accountId);
+    setToAccountId(parsed.toAccountId);
+    setDate(parsed.date ?? today);
+    setNote(parsed.note ?? "");
+    setError(null);
+  }
+
   function changeType(next: TransactionType) {
     setType(next);
     setError(null);
@@ -203,6 +226,7 @@ function TransactionForm({
         to_account_id: destination,
         category_id: categoryId,
         note,
+        source: typed.trim() ? "nl" : "manual",
       });
       if (!result.ok) return setError(result.error);
 
@@ -247,6 +271,20 @@ function TransactionForm({
 
   return (
     <form onSubmit={submit} className="space-y-5">
+      {!editing && (
+        <div className="relative">
+          <Sparkles className="text-save pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2" />
+          <Input
+            value={typed}
+            onChange={(e) => applyTyped(e.target.value)}
+            placeholder="Type it: 450 swiggy dinner yesterday"
+            aria-label="Describe the transaction in words"
+            autoComplete="off"
+            className="pl-11"
+          />
+        </div>
+      )}
+
       <Segmented
         value={type}
         onChange={changeType}

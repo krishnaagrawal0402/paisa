@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AddTransactionButton } from "@/components/activity/add-button";
@@ -50,7 +50,15 @@ export default async function ActivityPage({ searchParams }: PageProps<"/activit
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Activity</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Activity</h1>
+          <Link
+            href="/import"
+            className="text-muted hover:text-fg border-line hover:bg-glass inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs"
+          >
+            <Upload className="size-3.5" /> Import
+          </Link>
+        </div>
         <nav aria-label="Month" className="glass flex items-center gap-1 !rounded-full p-1">
           <Link
             href={monthHref(shiftMonthKey(month.key, -1))}

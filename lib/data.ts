@@ -194,3 +194,25 @@ export function spendByCategory(transactions: Transaction[], categories: Categor
   const rest = rows.slice(top).reduce((sum, r) => sum + r.amount, 0);
   return [...rows.slice(0, top), { id: null, name: `${rows.length - top} others`, emoji: "…", amount: rest }];
 }
+
+/** Learned "keyword → category" rules, used by typed entry and statement import. */
+export const getCategoryRules = cache(async (): Promise<{ pattern: string; category_id: string }[]> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("category_rules").select("pattern, category_id");
+  if (error) throw error;
+  return data ?? [];
+});
+
+export type ImportBatch = { id: string; account_id: string; filename: string; row_count: number; created_at: string };
+
+/** The last few imports, so any of them can be undone later. */
+export async function getRecentImports(): Promise<ImportBatch[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("import_batches")
+    .select("id, account_id, filename, row_count, created_at")
+    .order("created_at", { ascending: false })
+    .limit(8);
+  if (error) throw error;
+  return data ?? [];
+}

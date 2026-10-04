@@ -115,6 +115,41 @@ try {
     );
     check("daily_totals sums only the caller's transactions", daily.income === 100000 && daily.expense === 30000);
 
+    // ── statement import ──
+    await tx`set local role authenticated`;
+    await tx`select set_config('request.jwt.claims', ${JSON.stringify({ sub: user.id, role: "authenticated" })}, true)`;
+    const balanceOf = async () =>
+      Number((await tx`select balance from public.account_balances where account_id = ${bank.id}`)[0].balance);
+    const before = await balanceOf();
+    const rows = JSON.stringify([
+      {
+        type: "expense",
+        amount: 45000,
+        occurred_on: "2026-01-05",
+        account_id: bank.id,
+        note: "Swiggy",
+        import_hash: "v1:a",
+      },
+      {
+        type: "income",
+        amount: 100000,
+        occurred_on: "2026-01-06",
+        account_id: bank.id,
+        note: "Refund",
+        import_hash: "v1:b",
+      },
+    ]);
+    const [{ first: firstImport }] =
+      await tx`select public.import_statement(${bank.id}, 'jan.csv', ${rows}::jsonb, true) as first`;
+    const [{ again }] = await tx`select public.import_statement(${bank.id}, 'jan.csv', ${rows}::jsonb, true) as again`;
+    const afterImport = await balanceOf();
+    const [{ undone }] = await tx`select public.undo_import(${firstImport.batch_id}) as undone`;
+    const afterUndo = await balanceOf();
+    await tx`reset role`;
+    check("import: adds lines once, re-import adds nothing", firstImport.inserted === 2 && again.inserted === 0);
+    check("import: 'balance already includes these' keeps today's balance", afterImport === before);
+    check("import: undo removes the lines and restores the balance", undone === 2 && afterUndo === before);
+
     throw ROLLBACK;
   });
 } catch (error) {

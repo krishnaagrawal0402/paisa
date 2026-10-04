@@ -12,6 +12,7 @@ export const metadata = { title: "Settings" };
 const LINKS = [
   { href: "/wealth", emoji: "🏦", label: "Accounts", hint: "Banks, cards, cash and wallets" },
   { href: "/settings/categories", emoji: "🏷️", label: "Categories", hint: "Rename, add or archive" },
+  { href: "/import", emoji: "📄", label: "Import bank statement", hint: "CSV, XLS or XLSX. Read in your browser" },
 ];
 
 export default async function SettingsPage() {
