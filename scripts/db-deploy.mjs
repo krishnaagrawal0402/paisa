@@ -13,6 +13,12 @@ import postgres from "postgres";
 
 nextEnv.loadEnvConfig(process.cwd());
 
+// Preview deployments (other branches) must never migrate the real database.
+if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production") {
+  console.log(`→ Skipping migrations on a ${process.env.VERCEL_ENV} deployment (production deploys only).`);
+  process.exit(0);
+}
+
 const dbUrl = process.env.SUPABASE_DB_URL || process.env.POSTGRES_URL_NON_POOLING;
 if (!dbUrl) {
   console.warn(
