@@ -6,6 +6,7 @@ import { getProfile } from "@/lib/data";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { signOut } from "./actions";
 import { DeleteAccount } from "./delete-account";
+import { PasswordForm } from "./password-form";
 import { ProfileForm } from "./profile-form";
 
 export const metadata = { title: "Settings" };
@@ -47,6 +48,15 @@ export default async function SettingsPage() {
           </li>
         ))}
       </ul>
+
+      <Card>
+        <CardLabel>Sign-in password</CardLabel>
+        <p className="text-muted mt-1 text-sm">
+          Optional. Lets you sign in with your email and a password instead of an email link. Useful in the app
+          installed on your phone, where links open in the browser instead.
+        </p>
+        <PasswordForm email={user?.email ?? ""} />
+      </Card>
 
       <Card>
         <CardLabel>Your data</CardLabel>

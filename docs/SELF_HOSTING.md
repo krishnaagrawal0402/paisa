@@ -45,6 +45,8 @@ These two settings live in Supabase Auth config rather than the database, so set
    This adds a **6-digit code** to the email. You need the code when Paisa is installed as an app on your phone, because tapping a link there opens the browser instead of the app.
    Hosted Supabase only lets you edit templates once custom SMTP is set up (Authentication → Emails → SMTP Settings; [Resend](https://resend.com)'s free tier works). Without it, the default email contains just the link, which works fine when opened **in the same browser** you requested it from.
 
+**No SMTP? Use a password in the phone app.** Settings → Sign-in password lets each person set a password once (while signed in through the email link). The login page then has "Sign in with a password instead", which works inside the installed app. Email + password is on by default in Supabase; there's nothing to configure.
+
 > Supabase's built-in email sender is rate-limited (a few emails per hour), which is fine for one or two people. Custom SMTP lifts that limit too.
 
 ## 4. Optional: Google sign-in

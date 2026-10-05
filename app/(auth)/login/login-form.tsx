@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowLeft, Mail } from "lucide-react";
+import { ArrowLeft, KeyRound, Mail } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
@@ -10,6 +10,8 @@ import { login } from "./actions";
 
 export function LoginForm({ googleEnabled, initialError }: { googleEnabled: boolean; initialError?: string }) {
   const [current, action, pending] = useActionState(login, { step: "email", error: initialError });
+  // A sign-in link opens in the browser, not in the installed phone app; a password works anywhere.
+  const [usePassword, setUsePassword] = useState(false);
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -28,18 +30,46 @@ export function LoginForm({ googleEnabled, initialError }: { googleEnabled: bool
               id="email"
               name="email"
               type="email"
-              autoComplete="email"
+              autoComplete={usePassword ? "username" : "email"}
               inputMode="email"
               placeholder="you@example.com"
               defaultValue={current.email}
               required
               autoFocus
             />
-            <Button type="submit" className="w-full" disabled={pending}>
-              <Mail className="size-4" />
-              {pending ? "Sending…" : "Email me a sign-in link"}
-            </Button>
+            {usePassword ? (
+              <>
+                <input type="hidden" name="intent" value="password" />
+                <label htmlFor="password" className="sr-only">
+                  Password
+                </label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Password"
+                  required
+                />
+                <Button type="submit" className="w-full" disabled={pending}>
+                  <KeyRound className="size-4" />
+                  {pending ? "Signing in…" : "Sign in"}
+                </Button>
+              </>
+            ) : (
+              <Button type="submit" className="w-full" disabled={pending}>
+                <Mail className="size-4" />
+                {pending ? "Sending…" : "Email me a sign-in link"}
+              </Button>
+            )}
           </form>
+          <button
+            type="button"
+            onClick={() => setUsePassword(!usePassword)}
+            className="text-muted hover:text-fg mt-3 w-full text-center text-sm transition-colors"
+          >
+            {usePassword ? "Email me a sign-in link instead" : "Sign in with a password instead"}
+          </button>
 
           {googleEnabled && (
             <>

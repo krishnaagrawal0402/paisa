@@ -47,3 +47,32 @@ export async function deleteMyAccount(_prev: { error?: string }, formData: FormD
   await supabase.auth.signOut({ scope: "local" }).catch(() => {});
   redirect("/login");
 }
+
+const passwordSchema = z
+  .object({
+    password: z.string().min(8, "Use at least 8 characters").max(72, "Keep it under 72 characters"),
+    confirm: z.string(),
+  })
+  .refine((p) => p.password === p.confirm, { message: "The two passwords don't match" });
+
+/** Sets or changes the password used by "Sign in with a password" (handy in the installed phone app). */
+export type PasswordState = { ok?: boolean; error?: string };
+
+export async function setPassword(_prev: PasswordState, formData: FormData): Promise<PasswordState> {
+  if (!(await getCurrentUser())) redirect("/login");
+  const parsed = passwordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+  if (error) {
+    return {
+      error:
+        error.code === "same_password"
+          ? "That's already your password."
+          : error.code === "weak_password"
+            ? "That password is too easy to guess. Try a longer one."
+            : error.message,
+    };
+  }
+  return { ok: true };
+}
