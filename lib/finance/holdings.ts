@@ -20,6 +20,9 @@ export type Holding = {
   fd_compounding: Compounding | null;
   /** Where it's held: "Kotak Neo", "ICICI iMobile". Free text, optional. */
   platform: string | null;
+  /** Individual stocks: priced automatically when set (opening_units = shares). */
+  isin: string | null;
+  ticker: string | null;
   archived: boolean;
 };
 
@@ -31,7 +34,7 @@ export type HoldingFlow = {
   units: number | null;
 };
 
-/** NAV history, oldest first: [YYYY-MM-DD, NAV in rupees]. */
+/** Price history, oldest first: [YYYY-MM-DD, price in rupees]. A fund's NAV or a stock's close. */
 export type NavHistory = [string, number][];
 
 /** Latest NAV on or before `date` (binary search), or null before the fund existed. */
@@ -71,11 +74,21 @@ export const ASSET_CLASSES: Record<AssetClass, { label: string; emoji: string; m
   other: { label: "Other", emoji: "💼", manual: true },
 };
 
+/** Mutual funds and individual stocks are worth units × market price; everything else is computed or typed in. */
+export function isPriced(holding: Pick<Holding, "asset_class" | "isin">): boolean {
+  return holding.asset_class === "mutual_fund" || (holding.asset_class === "stock" && Boolean(holding.isin));
+}
+
+/** Whose value you update by hand (a stock portfolio total, PPF, EPF, gold…). */
+export function isManual(holding: Pick<Holding, "asset_class" | "isin">): boolean {
+  return ASSET_CLASSES[holding.asset_class].manual && !isPriced(holding);
+}
+
 /** What a holding is worth on `asOf`, from its opening position, flows, and prices. */
 export function positionAt(holding: Holding, flows: HoldingFlow[], asOf: string, nav?: NavHistory): Position {
   const opened = !holding.opening_date || holding.opening_date <= asOf;
   const mine = flows.filter((f) => f.holding_id === holding.id && f.occurred_on <= asOf);
-  const isFund = holding.asset_class === "mutual_fund";
+  const priced = isPriced(holding);
 
   let units = opened ? holding.opening_units : 0;
   let invested = opened ? holding.opening_cost : 0;
@@ -89,8 +102,8 @@ export function positionAt(holding: Holding, flows: HoldingFlow[], asOf: string,
     const sign = f.type === "invest" ? 1 : -1;
     invested += sign * f.amount;
     cashflows.push({ date: f.occurred_on, amount: -sign * f.amount });
-    if (isFund) {
-      // Units entered by hand win; otherwise use that day's NAV.
+    if (priced) {
+      // Units entered by hand win; otherwise use that day's price.
       const price = navAt(nav, f.occurred_on);
       const u = f.units ?? (price ? f.amount / 100 / price : 0);
       if (!f.units && !price) estimated = true;
@@ -99,7 +112,7 @@ export function positionAt(holding: Holding, flows: HoldingFlow[], asOf: string,
   }
 
   let value: Paise;
-  if (isFund) {
+  if (priced) {
     const price = navAt(nav, asOf);
     if (price) value = Math.round(Math.max(0, units) * price * 100);
     else {

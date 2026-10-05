@@ -79,6 +79,16 @@ Recurring rules (salary, rent, SIPs, subscriptions) are posted by the database i
 Outside India? Change `timeZone` in `config/app.ts`, and the time zone in the `cron.schedule(...)` call at the end of
 `supabase/migrations/20261004030000_recurring.sql` (add a new migration that re-runs `cron.schedule` with the same job name).
 
+## Stock prices (no setup needed)
+
+Individual stocks (Wealth → Investments → Add → Stocks → One stock) are priced automatically every day. Search covers every NSE-listed equity.
+
+- **Default (`STOCK_PRICES=upstox`):** Upstox's open daily-price endpoints, keyed by ISIN. No account or key. Upstox has said publicly that these endpoints are open on purpose. If they don't answer, Paisa falls back to Yahoo Finance by NSE symbol.
+- **`STOCK_PRICES=yahoo`:** Yahoo Finance only. Yahoo's endpoint is unofficial and meant for personal use.
+- **`STOCK_PRICES=off`:** no fetching. Track stocks as a portfolio total you update by hand.
+
+Neither source is a licensed market-data feed. Your server fetches prices for its own users' tracking and doesn't redistribute them. Prices are cached for six hours (today's price for 30 minutes), so they can lag. A stock split changes your share count: edit the holding's shares when one happens.
+
 ## Keeping your copy up to date
 
 Click **Sync fork** on your fork's GitHub page. Vercel redeploys, and the build applies any new migrations before the new code goes live. If you cloned with the Deploy button instead of forking, pull from this repo: `git pull https://github.com/krishnaagrawal0402/paisa main`.

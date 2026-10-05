@@ -12,7 +12,7 @@ export const metadata = { title: "Privacy" };
  * every statement here describes what the open-source code does.
  */
 export default function PrivacyPage() {
-  const { operator, allowedEmails } = getServerEnv();
+  const { operator, allowedEmails, stockPrices } = getServerEnv();
   const host = process.env.VERCEL ? "Vercel" : "its hosting provider";
   const runBy = operator.name ? (
     operator.url ? (
@@ -95,6 +95,13 @@ export default function PrivacyPage() {
             <li>Supabase: the database, and sending sign-in emails.</li>
             <li>{host === "Vercel" ? "Vercel" : "The hosting provider"}: serving the app.</li>
             <li>mfapi.in: daily mutual fund prices. Only fund names and codes are sent, never anything about you.</li>
+            {stockPrices !== "off" && (
+              <li>
+                {stockPrices === "upstox" ? "Upstox, with Yahoo Finance as a backup" : "Yahoo Finance"}: daily stock
+                prices. Only the stock&apos;s ISIN or symbol is sent, never anything about you or how many shares you
+                hold.
+              </li>
+            )}
             <li>Google, only if you choose &ldquo;Continue with Google&rdquo; to sign in.</li>
           </ul>
         </section>

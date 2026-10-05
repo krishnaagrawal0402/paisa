@@ -254,6 +254,9 @@ export function Onboarding({ initialName, initialPayday }: { initialName: string
                   </Chip>
                 ))}
               </div>
+              <p className="text-subtle mt-3 text-xs">
+                Fixed deposits, mutual funds and stocks come later, under Wealth → Investments.
+              </p>
 
               <Nav onBack={() => go("about")} onNext={nextFromAccounts} />
             </>

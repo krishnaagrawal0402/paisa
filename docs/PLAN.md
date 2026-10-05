@@ -324,7 +324,7 @@ Not built now, but Phase 1 avoids blocking it:
 - Bring-your-own-key LLM for NL fallback and a monthly "money coach" summary.
 - Receipt photo attachment (Supabase Storage).
 - Tax view (80C progress: ELSS + PPF + EPF + insurance).
-- Stock price auto-fetch.
+- ~~Stock price auto-fetch~~ → **built (2026-10-05):** individual NSE stocks by ISIN, priced from Upstox's open candle endpoints with Yahoo as fallback (`lib/stocks.ts`, `STOCK_PRICES` env var). Portfolio totals typed by hand still work.
 
 ## 11. Defaults assumed (shout if you want different)
 

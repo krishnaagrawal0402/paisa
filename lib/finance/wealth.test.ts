@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { toPaise } from "@/lib/money";
 import { fdValue } from "./fd";
-import { navAt, positionAt, type Holding, type NavHistory } from "./holdings";
+import { isManual, navAt, positionAt, type Holding, type NavHistory } from "./holdings";
 import { emiFor, loanStatus } from "./loan";
 import { xirr } from "./xirr";
 
@@ -123,6 +123,8 @@ describe("positionAt", () => {
     fd_maturity: null,
     fd_compounding: null,
     platform: null,
+    isin: null,
+    ticker: null,
     archived: false,
   };
   const nav: NavHistory = [
@@ -186,5 +188,32 @@ describe("positionAt", () => {
 
   it("is empty before the holding was opened", () => {
     expect(positionAt(base, [], "2024-06-01", nav)).toMatchObject({ units: 0, invested: 0, value: 0 });
+  });
+
+  it("prices a stock with an ISIN as shares × close, including shares bought later", () => {
+    const stock: Holding = {
+      ...base,
+      asset_class: "stock",
+      scheme_code: null,
+      isin: "INE154A01025",
+      ticker: "ITC",
+      opening_units: 10,
+      opening_cost: toPaise(4_000),
+    };
+    const prices: NavHistory = [
+      ["2025-01-01", 400],
+      ["2026-03-02", 300],
+      ["2026-10-05", 267.8],
+    ];
+    // Bought ₹3,000 more on 2 Mar 2026 at ₹300 = 10 shares (worked out from the price).
+    const buy = [
+      { holding_id: "h", type: "invest" as const, amount: toPaise(3_000), occurred_on: "2026-03-02", units: null },
+    ];
+    const p = positionAt(stock, buy, "2026-10-05", prices);
+    expect(p.units).toBe(20);
+    expect(p.value).toBe(toPaise(5_356));
+    expect(p.invested).toBe(toPaise(7_000));
+    expect(isManual(stock)).toBe(false);
+    expect(isManual({ ...stock, isin: null })).toBe(true);
   });
 });

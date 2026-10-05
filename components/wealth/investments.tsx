@@ -12,6 +12,7 @@ import { appConfig } from "@/config/app";
 import {
   deleteHolding,
   findSchemes,
+  findStocks,
   recordHoldingFlow,
   saveHolding,
   setHoldingArchived,
@@ -19,10 +20,11 @@ import {
 } from "@/lib/actions/wealth";
 import { cn } from "@/lib/cn";
 import type { Compounding } from "@/lib/finance/fd";
-import { ASSET_CLASSES, type AssetClass } from "@/lib/finance/holdings";
-import { formatRupees } from "@/lib/money";
+import { ASSET_CLASSES, isManual, isPriced, type AssetClass } from "@/lib/finance/holdings";
+import { formatINR, formatRupees } from "@/lib/money";
 import { todayIn } from "@/lib/month";
 import { parseAmount } from "@/lib/parse/amount";
+import type { StockListing } from "@/lib/stock-prices";
 import type { Account } from "@/lib/types";
 import type { HoldingView } from "@/lib/wealth";
 
@@ -138,6 +140,7 @@ function HoldingRows({ holdings, onSelect }: { holdings: HoldingView[]; onSelect
                 <span className="block truncate text-sm font-medium">{h.name}</span>
                 <span className="text-muted block truncate text-xs">
                   {ASSET_CLASSES[h.asset_class].label}
+                  {h.ticker && ` · ${h.ticker}`}
                   {h.platform && ` · ${h.platform}`}
                   {p.xirr !== null && ` · ${pct(p.xirr)} a year`}
                   {p.estimated && " · estimate"}
@@ -176,12 +179,13 @@ function HoldingSheet({
 }) {
   const [mode, setMode] = useState<Mode>("details");
   if (!holding) return <HoldingForm holding={null} platforms={platforms} onDone={onDone} />;
-  const manual = ASSET_CLASSES[holding.asset_class].manual;
+  const manual = isManual(holding);
+  const stock = holding.asset_class === "stock";
   const p = holding.position;
   const options: { value: Mode; label: string; activeClass: string }[] = [
     { value: "details", label: "Details", activeClass: "bg-glass-hover text-fg" },
-    { value: "add", label: "Add money", activeClass: "bg-invest text-bg" },
-    { value: "redeem", label: "Redeem", activeClass: "bg-glass-hover text-fg" },
+    { value: "add", label: stock ? "Buy" : "Add money", activeClass: "bg-invest text-bg" },
+    { value: "redeem", label: stock ? "Sell" : "Redeem", activeClass: "bg-glass-hover text-fg" },
     ...(manual ? [{ value: "value" as const, label: "Update value", activeClass: "bg-save text-bg" }] : []),
   ];
 
@@ -196,9 +200,13 @@ function HoldingSheet({
           className={p.gain >= 0 ? "text-income" : "text-expense"}
         />
       </div>
-      {holding.asset_class === "mutual_fund" && p.units > 0 && (
+      {isPriced(holding) && p.units > 0 && (
         <p className="text-muted -mt-2 text-center text-xs">
-          {p.units.toFixed(3)} units{p.xirr !== null && ` · ${pct(p.xirr)} a year (XIRR)`}
+          {holding.asset_class === "stock"
+            ? `${Number(p.units.toFixed(4))} shares · ${formatINR(Math.round(p.value / p.units))} each`
+            : `${p.units.toFixed(3)} units`}
+          {p.xirr !== null && ` · ${pct(p.xirr)} a year (XIRR)`}
+          {p.estimated && " · price unavailable, showing cost"}
         </p>
       )}
       <Segmented value={mode} onChange={setMode} options={options} />
@@ -235,6 +243,14 @@ function HoldingForm({
 }) {
   const toast = useToast();
   const [platform, setPlatform] = useState(holding?.platform ?? "");
+  // Stocks: one company tracked at its market price, or a whole portfolio's total typed in now and then.
+  const [stockMode, setStockMode] = useState<"single" | "portfolio">(
+    holding ? (holding.isin ? "single" : "portfolio") : "single",
+  );
+  const [isin, setIsin] = useState<string | null>(holding?.isin ?? null);
+  const [ticker, setTicker] = useState<string | null>(holding?.ticker ?? null);
+  const [stockQuery, setStockQuery] = useState("");
+  const [stockResults, setStockResults] = useState<StockListing[] | null>([]);
   const [assetClass, setAssetClass] = useState<AssetClass>(holding?.asset_class ?? "mutual_fund");
   const [name, setName] = useState(holding?.name ?? "");
   const [schemeCode, setSchemeCode] = useState<number | null>(holding?.scheme_code ?? null);
@@ -255,6 +271,9 @@ function HoldingForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const meta = ASSET_CLASSES[assetClass];
+  const singleStock = assetClass === "stock" && stockMode === "single";
+  const priced = assetClass === "mutual_fund" || singleStock;
+  const manualFields = meta.manual && !singleStock;
 
   // Fund search, debounced.
   useEffect(() => {
@@ -267,6 +286,17 @@ function HoldingForm({
     return () => clearTimeout(timer);
   }, [query, assetClass]);
 
+  // Stock search, debounced. Null results mean the stock list couldn't be loaded.
+  useEffect(() => {
+    if (!singleStock || stockQuery.trim().length < 2) return;
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      setStockResults(await findStocks(stockQuery));
+      setSearching(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [stockQuery, singleStock]);
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const costPaise = cost.trim() ? parseAmount(cost) : 0;
@@ -275,6 +305,7 @@ function HoldingForm({
     if (value.trim() && valuePaise === null) return setError("Current value should be a number");
     const unitsNum = units.trim() ? Number(units.replace(/,/g, "")) : 0;
     if (!Number.isFinite(unitsNum) || unitsNum < 0) return setError("Units should be a number");
+    if (singleStock && !isin) return setError("Pick the stock from the search results");
     setError(null);
     startTransition(async () => {
       const result = await saveHolding({
@@ -282,12 +313,12 @@ function HoldingForm({
         name,
         asset_class: assetClass,
         scheme_code: schemeCode,
-        opening_units: assetClass === "mutual_fund" ? unitsNum : 0,
+        opening_units: priced ? unitsNum : 0,
         opening_cost: costPaise,
         opening_date: since || null,
-        manual_value: meta.manual ? valuePaise : null,
+        manual_value: manualFields ? valuePaise : null,
         manual_value_at:
-          meta.manual && valuePaise !== null && valuePaise !== holding?.manual_value
+          manualFields && valuePaise !== null && valuePaise !== holding?.manual_value
             ? todayIn(appConfig.timeZone)
             : holding?.manual_value_at,
         fd_rate: assetClass === "fd" && rate ? Number(rate) : null,
@@ -295,6 +326,8 @@ function HoldingForm({
         fd_maturity: fdMaturity || null,
         fd_compounding: compounding,
         platform: platform.trim() || null,
+        isin: singleStock ? isin : null,
+        ticker: singleStock ? ticker : null,
       });
       if (!result.ok) return setError(result.error);
       onDone();
@@ -337,7 +370,75 @@ function HoldingForm({
         </Field>
       )}
 
-      {assetClass === "mutual_fund" && !holding ? (
+      {assetClass === "stock" && !holding && (
+        <Segmented
+          value={stockMode}
+          onChange={setStockMode}
+          options={[
+            { value: "single", label: "One stock · live price", activeClass: "bg-invest text-bg" },
+            { value: "portfolio", label: "A portfolio total", activeClass: "bg-glass-hover text-fg" },
+          ]}
+        />
+      )}
+
+      {singleStock && !holding ? (
+        <Field label="Stock">
+          {isin ? (
+            <div className="border-invest/40 bg-invest/10 flex items-center gap-3 rounded-2xl border p-3">
+              <span className="min-w-0 flex-1 text-sm">
+                {name} <span className="text-muted">· {ticker}</span>
+              </span>
+              <button type="button" onClick={() => setIsin(null)} className="text-muted hover:text-fg text-xs">
+                Change
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="relative">
+                <Search className="text-subtle pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2" />
+                <Input
+                  value={stockQuery}
+                  onChange={(e) => setStockQuery(e.target.value)}
+                  placeholder="Search: reliance, TCS, or an ISIN"
+                  className="pl-11"
+                  autoFocus
+                />
+              </div>
+              {searching && <p className="text-muted text-xs">Searching… (the first search can take a few seconds)</p>}
+              {stockResults && stockResults.length > 0 && (
+                <ul className="border-line divide-line max-h-60 divide-y overflow-y-auto rounded-2xl border">
+                  {stockResults.map((r) => (
+                    <li key={r.isin}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsin(r.isin);
+                          setTicker(r.symbol);
+                          setName(companyName(r.name, r.symbol));
+                          setStockResults([]);
+                        }}
+                        className="hover:bg-glass-hover flex w-full items-baseline gap-2 px-3 py-2.5 text-left text-sm"
+                      >
+                        <span className="font-medium">{r.symbol}</span>
+                        <span className="text-muted min-w-0 truncate text-xs">{r.name}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {stockResults === null && (
+                <p className="text-expense text-xs">
+                  Stock search isn&apos;t available right now. Choose &ldquo;A portfolio total&rdquo; instead, or try
+                  again later.
+                </p>
+              )}
+              {!searching && stockResults?.length === 0 && stockQuery.trim().length >= 2 && (
+                <p className="text-muted text-xs">No NSE stocks found. Try the symbol, like INFY.</p>
+              )}
+            </div>
+          )}
+        </Field>
+      ) : assetClass === "mutual_fund" && !holding ? (
         <Field label="Fund">
           {schemeCode ? (
             <div className="border-invest/40 bg-invest/10 flex items-center gap-3 rounded-2xl border p-3">
@@ -398,9 +499,9 @@ function HoldingForm({
         </Field>
       )}
 
-      {assetClass === "mutual_fund" && (
+      {priced && (
         <div className="grid grid-cols-2 gap-3">
-          <Labeled label="Units you hold">
+          <Labeled label={singleStock ? "Shares you hold" : "Units you hold"}>
             <Input value={units} onChange={(e) => setUnits(e.target.value)} inputMode="decimal" placeholder="0" />
           </Labeled>
           <Labeled label="Amount invested so far">
@@ -415,7 +516,9 @@ function HoldingForm({
             />
           </Labeled>
           <p className="text-subtle col-span-2 -mt-1 text-xs">
-            From your fund app or CAS statement. Leave 0 for a brand-new SIP. The date makes yearly returns accurate.
+            {singleStock
+              ? "From your broker app's holdings. The price updates by itself every day."
+              : "From your fund app or CAS statement. Leave 0 for a brand-new SIP. The date makes yearly returns accurate."}
           </p>
         </div>
       )}
@@ -461,7 +564,7 @@ function HoldingForm({
         </div>
       )}
 
-      {meta.manual && (
+      {manualFields && (
         <div className="grid grid-cols-2 gap-3">
           <Labeled label="Current value">
             <Rupee value={value} onChange={setValue} />
@@ -584,20 +687,28 @@ function FlowForm({
             className="[color-scheme:dark]"
           />
         </Labeled>
-        {holding.asset_class === "mutual_fund" && (
-          <Labeled label="Units (optional)">
+        {isPriced(holding) && (
+          <Labeled label={holding.asset_class === "stock" ? "Shares (optional)" : "Units (optional)"}>
             <Input
               value={units}
               onChange={(e) => setUnits(e.target.value)}
               inputMode="decimal"
-              placeholder="From NAV"
+              placeholder={holding.asset_class === "stock" ? "From price" : "From NAV"}
             />
           </Labeled>
         )}
       </div>
       {error && <p className="text-expense text-sm">{error}</p>}
       <Button type="submit" disabled={pending} className="w-full">
-        {pending ? "Saving…" : type === "invest" ? "Add money" : "Record redemption"}
+        {pending
+          ? "Saving…"
+          : holding.asset_class === "stock"
+            ? type === "invest"
+              ? "Record purchase"
+              : "Record sale"
+            : type === "invest"
+              ? "Add money"
+              : "Record redemption"}
       </Button>
     </form>
   );
@@ -668,4 +779,13 @@ function Rupee({ value, onChange, autoFocus }: { value: string; onChange: (v: st
       />
     </div>
   );
+}
+
+/** "ITC LTD" → "ITC Ltd", "RELIANCE INDUSTRIES LTD" → "Reliance Industries Ltd". */
+function companyName(raw: string, symbol: string): string {
+  return raw
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => (w.toUpperCase() === symbol ? symbol : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
 }

@@ -41,6 +41,7 @@ export function getPublicEnv() {
 const serverSchema = z.object({
   allowedEmails: z.array(z.email("ALLOWED_EMAILS contains an invalid email")),
   siteUrl: z.url("SITE_URL must be a full URL like https://paisa.example.com").optional(),
+  stockPrices: z.enum(["upstox", "yahoo", "off"], "STOCK_PRICES must be upstox, yahoo or off"),
   // Who runs this instance, shown in the footer and on /privacy. All optional.
   operator: z.object({
     name: z.string().max(60, "INSTANCE_OPERATOR is too long (60 characters max)").optional(),
@@ -57,6 +58,7 @@ export function getServerEnv() {
   const parsed = serverSchema.safeParse({
     allowedEmails: parseAllowedEmails(process.env.ALLOWED_EMAILS),
     siteUrl: process.env.SITE_URL || undefined,
+    stockPrices: process.env.STOCK_PRICES?.trim() || "upstox",
     operator: {
       name: process.env.INSTANCE_OPERATOR?.trim() || undefined,
       url: process.env.INSTANCE_OPERATOR_URL?.trim() || undefined,

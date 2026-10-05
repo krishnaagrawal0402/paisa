@@ -6,6 +6,8 @@ import { run, type ActionResult } from "@/lib/actions/run";
 import { searchSchemes, type Scheme } from "@/lib/mf";
 import { addDays, todayIn } from "@/lib/month";
 import { nextOccurrence } from "@/lib/recurring";
+import type { StockListing } from "@/lib/stock-prices";
+import { searchStocks } from "@/lib/stocks";
 import { getCurrentUser } from "@/lib/supabase/server";
 
 const id = z.uuid();
@@ -15,6 +17,12 @@ const paise = z.number().int().min(0).max(1e14);
 export async function findSchemes(query: string): Promise<Scheme[]> {
   if (!(await getCurrentUser())) return [];
   return searchSchemes(z.string().max(80).parse(query));
+}
+
+/** Null means search itself is unavailable (the stock list couldn't be fetched). */
+export async function findStocks(query: string): Promise<StockListing[] | null> {
+  if (!(await getCurrentUser())) return [];
+  return searchStocks(z.string().max(60).parse(query));
 }
 
 // ─── holdings ────────────────────────────────────────────────────────────────
@@ -35,6 +43,11 @@ const holdingSchema = z
     fd_maturity: date.nullish(),
     fd_compounding: z.enum(["monthly", "quarterly", "half_yearly", "yearly", "simple"]).nullish(),
     platform: z.string().trim().max(40, "Keep the platform under 40 characters").nullish(),
+    isin: z
+      .string()
+      .regex(/^IN[A-Z0-9]{9}[0-9]$/, "That isn't a valid Indian ISIN")
+      .nullish(),
+    ticker: z.string().trim().min(1).max(30).nullish(),
   })
   .refine((h) => h.asset_class !== "mutual_fund" || h.scheme_code, { message: "Pick the fund from the search results" })
   .refine((h) => h.asset_class !== "fd" || (h.fd_rate !== null && h.fd_rate !== undefined && h.fd_start), {
@@ -47,19 +60,22 @@ export type HoldingInput = z.input<typeof holdingSchema>;
 export async function saveHolding(input: HoldingInput): Promise<ActionResult> {
   return run(async (supabase) => {
     const { id: holdingId, ...h } = holdingSchema.parse(input);
+    const tracked = h.asset_class === "stock" && Boolean(h.isin);
+    const manualValue = tracked ? null : (h.manual_value ?? null);
     const fields = {
       ...h,
       scheme_code: h.asset_class === "mutual_fund" ? h.scheme_code : null,
-      manual_value_at:
-        h.manual_value !== null && h.manual_value !== undefined
-          ? (h.manual_value_at ?? todayIn(appConfig.timeZone))
-          : null,
+      manual_value: manualValue,
+      manual_value_at: manualValue !== null ? (h.manual_value_at ?? todayIn(appConfig.timeZone)) : null,
       fd_rate: h.asset_class === "fd" ? h.fd_rate : null,
       fd_start: h.asset_class === "fd" ? h.fd_start : null,
       fd_maturity: h.asset_class === "fd" ? (h.fd_maturity ?? null) : null,
       fd_compounding: h.asset_class === "fd" ? (h.fd_compounding ?? "quarterly") : null,
       opening_date: h.asset_class === "fd" ? h.fd_start : (h.opening_date ?? null),
       platform: h.platform || null,
+      // A tracked stock is priced from the market; a portfolio total (no ISIN) keeps its typed-in value.
+      isin: h.asset_class === "stock" ? (h.isin ?? null) : null,
+      ticker: h.asset_class === "stock" && h.isin ? (h.ticker ?? null) : null,
     };
     const { error } = holdingId
       ? await supabase.from("holdings").update(fields).eq("id", holdingId)

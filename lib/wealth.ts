@@ -1,10 +1,18 @@
 import "server-only";
 import { cache } from "react";
 import { getAccounts, getToday, postDueRecurring } from "@/lib/data";
-import { positionAt, type Holding, type HoldingFlow, type NavHistory, type Position } from "@/lib/finance/holdings";
+import {
+  isPriced,
+  positionAt,
+  type Holding,
+  type HoldingFlow,
+  type NavHistory,
+  type Position,
+} from "@/lib/finance/holdings";
 import { loanStatus, type LoanStatus, type LoanTerms } from "@/lib/finance/loan";
 import { navHistories } from "@/lib/mf";
 import { addDays } from "@/lib/month";
+import { stockHistories } from "@/lib/stocks";
 import { createClient } from "@/lib/supabase/server";
 import type { AccountWithBalance } from "@/lib/types";
 
@@ -15,7 +23,7 @@ export const getHoldings = cache(async (): Promise<Holding[]> => {
   const { data, error } = await supabase
     .from("holdings")
     .select(
-      "id, name, asset_class, scheme_code, opening_units, opening_cost, opening_date, manual_value, manual_value_at, fd_rate, fd_start, fd_maturity, fd_compounding, platform, archived",
+      "id, name, asset_class, scheme_code, opening_units, opening_cost, opening_date, manual_value, manual_value_at, fd_rate, fd_start, fd_maturity, fd_compounding, platform, isin, ticker, archived",
     )
     .order("sort")
     .order("created_at");
@@ -105,7 +113,7 @@ const monthEnd = (date: string, back: number) => {
 
 /**
  * Everything the Wealth page needs. History (12 month-ends + today) is rebuilt
- * from transactions, NAV history, FD maths and loan schedules.
+ * from transactions, fund NAVs and stock prices, FD maths and loan schedules.
  */
 export const getWealth = cache(async ({ withHistory = true }: { withHistory?: boolean } = {}): Promise<Wealth> => {
   const today = getToday();
@@ -115,8 +123,12 @@ export const getWealth = cache(async ({ withHistory = true }: { withHistory?: bo
     getHoldingFlows(),
     getLoans(),
   ]);
-  const navs = await navHistories(holdings.filter((h) => h.scheme_code !== null).map((h) => h.scheme_code!));
-  const nav = (h: Holding): NavHistory | undefined => (h.scheme_code ? navs.get(h.scheme_code) : undefined);
+  const [navs, stocks] = await Promise.all([
+    navHistories(holdings.filter((h) => h.scheme_code !== null).map((h) => h.scheme_code!)),
+    stockHistories(holdings.filter((h) => !h.archived && h.asset_class === "stock" && isPriced(h))),
+  ]);
+  const nav = (h: Holding): NavHistory | undefined =>
+    h.scheme_code ? navs.get(h.scheme_code) : h.isin ? stocks.get(h.isin) : undefined;
 
   const holdingViews = holdings.map((h) => ({ ...h, position: positionAt(h, flows, today, nav(h)) }));
   const loanViews = loans.map((l) => ({ ...l, status: loanStatus(l, today) }));

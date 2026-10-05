@@ -258,6 +258,9 @@ function AccountForm({ account, onDone }: { account: AccountWithBalance | null; 
             </Chip>
           ))}
         </div>
+        <p className="text-subtle text-xs">
+          Fixed deposits, mutual funds, stocks, PPF and EPF go under Wealth → Investments → Add.
+        </p>
       </div>
 
       <div className="space-y-2">
