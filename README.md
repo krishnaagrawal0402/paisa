@@ -19,7 +19,7 @@
 - **Wealth.** Mutual funds priced daily from AMFI (no API key), FDs with interest worked out, EPF/PPF/stocks/gold, grouped by the app or broker they're in. Credit card bills with due dates and limit usage, loans with EMI schedules, and a 12-month net-worth trend.
 - **Plan.** Budgets that warn before you overspend, goals with "₹X a month to make it", and an emergency-fund target based on what you actually spend.
 - **Monthly report card.** A health score across five pillars, insights in plain English, and a story you can share (amounts hidden unless you choose to show them).
-- **Your data is yours.** It lives in your own database. Export everything as JSON or CSV, or delete your account, anytime. There's a one-tap "hide amounts" mode for using it in public.
+- **Your data is yours.** It lives in your own database. Export everything as JSON or CSV, or delete your account, anytime. There's a one-tap "hide amounts" mode for using it in public. A plain-language [privacy page](app/privacy/page.tsx) ships with every instance.
 
 ## Run your own copy
 

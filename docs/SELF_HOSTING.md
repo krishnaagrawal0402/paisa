@@ -24,6 +24,7 @@ Your instance = this code + your own Supabase project (free tier is plenty for p
 2. Add the env vars: the three above, plus `ALLOWED_EMAILS` (your email; comma-separate several).
 3. Deploy. The build runs `scripts/db-deploy.mjs` first, which applies every migration and syncs `ALLOWED_EMAILS` into the database. **If the database step fails, the deploy fails**, so code never runs against an old schema.
 4. Optional: set `SITE_URL` to your production URL (for example `https://paisa-you.vercel.app`).
+5. Optional: say who runs the instance. `INSTANCE_OPERATOR` (your name or company), `INSTANCE_OPERATOR_URL` and `INSTANCE_CONTACT_EMAIL` appear in the footer and on the `/privacy` page. Leave them out and the footer just says it's open-source Paisa.
 
 ### Locally
 

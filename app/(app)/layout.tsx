@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { QuickAddProvider } from "@/components/quick-add/quick-add";
 import { MobileHeader, Sidebar, TabBar } from "@/components/shell/nav";
+import { SiteFooter } from "@/components/shell/site-footer";
 import { ToastProvider } from "@/components/ui/toast";
 import { getAccounts, getCategories, getCategoryRules, getProfile } from "@/lib/data";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -33,7 +34,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <Sidebar />
         <MobileHeader />
         <div className="md:pl-64">
-          <main className="mx-auto w-full max-w-5xl px-4 pt-6 pb-32 md:px-8 md:pt-10 md:pb-12">{children}</main>
+          <main className="mx-auto w-full max-w-5xl px-4 pt-6 pb-32 md:px-8 md:pt-10 md:pb-12">
+            {children}
+            <SiteFooter className="border-line mt-16 border-t pt-6" />
+          </main>
         </div>
         <TabBar />
       </QuickAddProvider>
