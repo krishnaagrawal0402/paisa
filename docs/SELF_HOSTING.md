@@ -54,6 +54,17 @@ These two settings live in Supabase Auth config rather than the database, so set
 
 The allowlist applies to Google too: the database refuses to create accounts for emails that aren't listed.
 
+## Optional: your own domain
+
+A subdomain like `paisa.yourdomain.com` gives you a nicer address. You also need a domain of your own for custom email (SMTP), which enables the 6-digit sign-in code. Set it up **before** installing the app on your phone, since an installed app is tied to its address.
+
+1. **Vercel → Project → Settings → Domains → Add.** Enter the subdomain and connect it to Production. Vercel shows a CNAME record.
+2. **Add that CNAME at your DNS provider.** On Cloudflare, set the proxy status to **DNS only** (grey cloud) so Vercel can issue the certificate. HTTPS is usually live within a minute or two.
+3. **Supabase → Authentication → URL Configuration:** set **Site URL** to the new address, and add `https://<new address>/auth/callback` to **Redirect URLs**.
+4. **Optional:** in Vercel, edit the old `*.vercel.app` domain and choose **Redirect to Another Domain**, so there's only one address to sign in on.
+
+You don't need `SITE_URL` for this. Sign-in links return to whichever address you signed in from. Only set it if every address redirects to one canonical domain.
+
 ## Recurring entries (no setup needed)
 
 Recurring rules (salary, rent, SIPs, subscriptions) are posted by the database itself:
